@@ -1,17 +1,31 @@
-<?php
+FROM php:8.2-apache
 
-use Illuminate\Http\Request;
+# Install composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-define('LARAVEL_START', microtime(true));
+# Install extension Laravel
+RUN apt-get update && apt-get install -y \
+    libzip-dev zip unzip \
+    && docker-php-ext-install pdo pdo_mysql zip
 
-// Determine if the application is in maintenance mode...
-if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
-    require $maintenance;
-}
+# Copy project ke container
+COPY . /var/www/html
 
-// Register the Composer autoloader...
-require __DIR__.'/../vendor/autoload.php';
+WORKDIR /var/www/html
 
-// Bootstrap Laravel and handle the request...
-(require_once __DIR__.'/../bootstrap/app.php')
-    ->handleRequest(Request::capture());
+# Install vendor
+RUN composer install --no-dev --optimize-autoloader
+
+# Set document root ke public
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+
+RUN sed -ri -e 's!/var/www/html!/var/www/html/public!g' \
+    /etc/apache2/sites-available/*.conf \
+    && sed -ri -e 's!/var/www/!/var/www/html/public!g' \
+    /etc/apache2/apache2.conf
+
+RUN a2enmod rewrite
+
+EXPOSE ${PORT}
+
+CMD ["apache2-foreground"]
