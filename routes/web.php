@@ -11,24 +11,23 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-
-    // Accounts Routes
+// Accounts Management
+Route::middleware(['auth'])->group(function () {
+    
+    // Accounts CRUD
     Route::resource('accounts', AccountsController::class);
-    Route::get('accounts/{account}/hierarchy', [AccountsController::class, 'hierarchy'])->name('accounts.hierarchy');
     
-    // Journals Routes
-    Route::resource('journals', JournalsController::class);
-    Route::post('journals/{journal}/post', [JournalsController::class, 'post'])->name('journals.post');
+    // Ajax endpoints
+    Route::get('/accounts-tree', [AccountsController::class, 'tree'])->name('accounts.tree');
+    Route::get('/accounts-units-by-faculty', [AccountsController::class, 'getUnitsByFaculty'])->name('accounts.units');
+    Route::post('/accounts-generate-code', [AccountsController::class, 'generateCodePreview'])->name('accounts.generate-code');
     
-    // Reports Routes
-    Route::prefix('reports')->group(function () {
-        Route::get('trial-balance', [ReportController::class, 'trialBalance'])->name('reports.trial-balance');
-        Route::get('balance-sheet', [ReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
-        Route::get('income-statement', [ReportController::class, 'incomeStatement'])->name('reports.income-statement');
+    // Reports
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/trial-balance', [ReportController::class, 'trialBalance'])->name('trial-balance');
+        Route::get('/lpk', [ReportController::class, 'lpk'])->name('lpk');
+        Route::get('/lak', [ReportController::class, 'lak'])->name('lak');
+        Route::get('/neraca-saldo', [ReportController::class, 'neracaSaldo'])->name('neraca-saldo');
     });
 });
 
