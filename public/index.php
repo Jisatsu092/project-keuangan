@@ -1,31 +1,55 @@
-FROM php:8.2-apache
+<?php
 
-# Install composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Http\Request;
 
-# Install extension Laravel
-RUN apt-get update && apt-get install -y \
-    libzip-dev zip unzip \
-    && docker-php-ext-install pdo pdo_mysql zip
+define('LARAVEL_START', microtime(true));
 
-# Copy project ke container
-COPY . /var/www/html
+/*
+|--------------------------------------------------------------------------
+| Check If The Application Is Under Maintenance
+|--------------------------------------------------------------------------
+|
+| If the application is in maintenance / demo mode via the "down" command
+| we will load this file so that any pre-rendered content can be shown
+| instead of starting the framework, which could cause an exception.
+|
+*/
 
-WORKDIR /var/www/html
+if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
+    require $maintenance;
+}
 
-# Install vendor
-RUN composer install --no-dev --optimize-autoloader
+/*
+|--------------------------------------------------------------------------
+| Register The Auto Loader
+|--------------------------------------------------------------------------
+|
+| Composer provides a convenient, automatically generated class loader for
+| this application. We just need to utilize it! We'll simply require it
+| into the script here so we don't need to manually load our classes.
+|
+*/
 
-# Set document root ke public
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+require __DIR__.'/../vendor/autoload.php';
 
-RUN sed -ri -e 's!/var/www/html!/var/www/html/public!g' \
-    /etc/apache2/sites-available/*.conf \
-    && sed -ri -e 's!/var/www/!/var/www/html/public!g' \
-    /etc/apache2/apache2.conf
+/*
+|--------------------------------------------------------------------------
+| Run The Application
+|--------------------------------------------------------------------------
+|
+| Once we have the application, we can handle the incoming request using
+| the application's HTTP kernel. Then, we will send the response back
+| to this client's browser, allowing them to enjoy our application.
+|
+*/
 
-RUN a2enmod rewrite
+$app = require_once __DIR__.'/../bootstrap/app.php';
 
-EXPOSE ${PORT}
+$kernel = $app->make(Kernel::class);
 
-CMD ["apache2-foreground"]
+$response = $kernel->handle(
+    $request = Request::capture()
+)->send();
+
+$kernel->terminate($request, $response);
