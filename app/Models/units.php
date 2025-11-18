@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class units extends Model
 {
     protected $fillable = [
-        'faculties_id',
+        'faculty_id', // UBAH: faculties_id -> faculty_id
         'code',
         'name',
         'type',
@@ -22,9 +22,9 @@ class units extends Model
     ];
 
     // Relationships
-    public function faculties(): BelongsTo
+    public function faculty(): BelongsTo // UBAH: faculties -> faculty (singular)
     {
-        return $this->belongsTo(faculties::class);
+        return $this->belongsTo(faculties::class, 'faculty_id'); // UBAH: tambahkan foreign key
     }
 
     public function accounts(): HasMany
@@ -45,12 +45,12 @@ class units extends Model
 
     public function scopeUnitPusat($query)
     {
-        return $query->where('type', 'unit_pusat')->whereNull('faculties_id');
+        return $query->where('type', 'unit_pusat')->whereNull('faculty_id'); // UBAH: faculties_id -> faculty_id
     }
 
-    public function scopeByFaculties($query, $facultiesId)
+    public function scopeByFaculty($query, $facultyId) // UBAH: ByFaculties -> ByFaculty
     {
-        return $query->where('faculties_id', $facultiesId);
+        return $query->where('faculty_id', $facultyId); // UBAH: faculties_id -> faculty_id
     }
 
     // Helpers
@@ -61,7 +61,7 @@ class units extends Model
 
     public function isUnitPusat(): bool
     {
-        return $this->type === 'unit_pusat' && $this->faculties_id === null;
+        return $this->type === 'unit_pusat' && $this->faculty_id === null; // UBAH: faculties_id -> faculty_id
     }
 
     public function getFullNameAttribute(): string
@@ -70,7 +70,7 @@ class units extends Model
             return "{$this->name} (Pusat)";
         }
         
-        return "{$this->faculties->name} - {$this->name}";
+        return $this->faculty ? "{$this->faculty->name} - {$this->name}" : $this->name;
     }
 
     public function getDisplayCodeAttribute(): string
@@ -79,6 +79,6 @@ class units extends Model
             return "0{$this->code}"; // e.g., 02 untuk Keuangan
         }
         
-        return "{$this->faculties->code}{$this->code}"; // e.g., 11 untuk Syariah-Ekonomi Syariah
+        return $this->faculty ? "{$this->faculty->code}{$this->code}" : $this->code; // e.g., 11 untuk Syariah-Ekonomi Syariah
     }
 }

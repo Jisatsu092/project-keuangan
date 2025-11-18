@@ -11,7 +11,7 @@ class FacultiesController extends Controller
 {
     public function index()
     {
-        $faculties = faculties::orderBy('code')->paginate(20);
+        $faculties = faculties::withCount(['prodis'])->orderBy('code')->paginate(20);
         return view('pages.master.faculties.index', compact('faculties'));
     }
 
@@ -28,7 +28,7 @@ class FacultiesController extends Controller
         try {
             DB::beginTransaction();
 
-            Faculties::create([
+            faculties::create([
                 'code' => $validated['code'],
                 'name' => $validated['name'],
                 'is_active' => $validated['is_active'] ?? true,
@@ -73,7 +73,7 @@ class FacultiesController extends Controller
 
     public function destroy(faculties $faculty)
     {
-        // Check if has units
+        // Check if has units - PERBAIKI: sekarang menggunakan faculty_id
         if ($faculty->units()->exists()) {
             return back()->with('error', 'Tidak bisa hapus fakultas yang masih punya prodi/unit!');
         }

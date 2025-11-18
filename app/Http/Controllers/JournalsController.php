@@ -3,11 +3,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Accounts;
+use App\Models\accounts;
 use App\Models\journal_details;
 use App\Models\journals;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class JournalsController extends Controller
 {
@@ -21,9 +22,9 @@ class JournalsController extends Controller
             ->orderBy('created_at', 'desc');
 
         if ($search) {
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('journal_number', 'LIKE', "%{$search}%")
-                  ->orWhere('description', 'LIKE', "%{$search}%");
+                    ->orWhere('description', 'LIKE', "%{$search}%");
             });
         }
 
@@ -53,15 +54,23 @@ class JournalsController extends Controller
 
         $journalNumber = 'JV-' . now()->format('Ym') . '-' . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
 
-        // Get transactionable accounts only
-        $accounts = Accounts::where('can_transaction', true)
-            ->where('is_active', true)
-            ->orderBy('code')
-            ->get();
+        // Get transactionable accounts only - PASTIKAN query ini berhasil
+        try {
+            $accounts = accounts::where('can_transaction', true)
+                ->where('is_active', true)
+                ->orderBy('code')
+                ->get();
+        } catch (\Exception $e) {
+            // Fallback jika ada error
+            $accounts = collect(); // empty collection
+            Log::error('Error fetching accounts: ' . $e->getMessage());
+        }
+
+        // DEBUG: Cek apakah accounts ada data
+        // dd($accounts);
 
         return view('pages.journals.create', compact('journalNumber', 'accounts'));
     }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -69,7 +78,7 @@ class JournalsController extends Controller
             'transaction_date' => 'required|date',
             'description' => 'nullable|string',
             'document_reference' => 'nullable|string|max:100',
-            
+
             // Details (arrays)
             'account_codes' => 'required|array|min:2',
             'account_codes.*' => 'required|exists:accounts,code',
@@ -124,10 +133,10 @@ class JournalsController extends Controller
 
             DB::commit();
 
+            // PERBAIKI: route naming yang konsisten
             return redirect()
-                ->route('pages.journals.show', $journal)
+                ->route('journals.show', $journal) // Hapus 'pages.'
                 ->with('success', 'Journal entry berhasil dibuat!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return back()
@@ -138,11 +147,15 @@ class JournalsController extends Controller
 
     public function show(journals $journal)
     {
-        $journal->load(['details.account', 'createdBy', 'postedBy']);
+        // Load necessary relations
+        $journal->load([
+            'details.account',
+            'createdBy',
+            'postedBy'
+        ]);
 
         return view('pages.journals.show', compact('journal'));
     }
-
     public function post(journals $journal)
     {
         if ($journal->status !== 'draft') {
@@ -165,7 +178,6 @@ class JournalsController extends Controller
             DB::commit();
 
             return back()->with('success', 'Journal berhasil di-post!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal post journal: ' . $e->getMessage());
@@ -189,7 +201,6 @@ class JournalsController extends Controller
             DB::commit();
 
             return back()->with('success', 'Journal berhasil di-void!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal void journal: ' . $e->getMessage());
@@ -207,10 +218,10 @@ class JournalsController extends Controller
             $journal->delete();
             DB::commit();
 
+            // PERBAIKI: route naming yang konsisten
             return redirect()
-                ->route('pages.journals.index')
+                ->route('journals.index') // Hapus 'pages.'
                 ->with('success', 'Journal berhasil dihapus!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal hapus journal: ' . $e->getMessage());

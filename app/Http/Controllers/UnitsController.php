@@ -15,7 +15,7 @@ class UnitsController extends Controller
         $units = units::with('faculty')->orderBy('faculty_id')->orderBy('code')->paginate(50);
         $faculties = faculties::active()->get();
         
-        return view('master.units.index', compact('units', 'faculties'));
+        return view('pages.master.units.index', compact('units', 'faculties'));
     }
 
     public function store(Request $request)

@@ -23,7 +23,7 @@ class journal_details extends Model
     // Relationships
     public function journal(): BelongsTo
     {
-        return $this->belongsTo(journals::class);
+        return $this->belongsTo(journals::class, 'journal_id');
     }
 
     public function account(): BelongsTo

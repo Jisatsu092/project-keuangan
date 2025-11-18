@@ -19,15 +19,15 @@ class faculties extends Model
         'is_active' => 'boolean',
     ];
 
-    // Relationships
+    // Relationships - PERBAIKI foreign key
     public function units(): HasMany
     {
-        return $this->hasMany(units::class);
+        return $this->hasMany(units::class, 'faculty_id'); // TAMBAHKAN: foreign key
     }
 
     public function prodis(): HasMany
     {
-        return $this->hasMany(units::class)->where('type', 'prodi');
+        return $this->hasMany(units::class, 'faculty_id')->where('type', 'prodi'); // TAMBAHKAN: foreign key
     }
 
     public function accounts(): HasMany

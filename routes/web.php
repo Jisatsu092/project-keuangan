@@ -13,38 +13,41 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
-    
+
     // ============================================
     // MASTER DATA
     // ============================================
     Route::prefix('master')->name('master.')->group(function () {
         // Faculties
         Route::resource('faculties', FacultiesController::class)->except(['create', 'show', 'edit']);
-        
+
         // Units
         Route::resource('units', UnitsController::class)->except(['create', 'show', 'edit']);
-        
+
         // Activity Types
         Route::resource('activity-types', ActivityTypesController::class)->except(['create', 'show', 'edit']);
     });
-    
+
     // ============================================
     // ACCOUNTS
     // ============================================
     Route::resource('accounts', AccountsController::class);
-    
+
     // Ajax endpoints
     Route::get('/accounts-tree', [AccountsController::class, 'tree'])->name('accounts.tree');
     Route::get('/accounts-units-by-faculty', [AccountsController::class, 'getUnitsByFaculty'])->name('accounts.units');
     Route::post('/accounts-generate-code', [AccountsController::class, 'generateCodePreview'])->name('accounts.generate-code');
-    
+
     // ============================================
     // JOURNALS
     // ============================================
     Route::resource('journals', JournalsController::class);
     Route::post('/journals/{journal}/post', [JournalsController::class, 'post'])->name('journals.post');
     Route::post('/journals/{journal}/void', [JournalsController::class, 'void'])->name('journals.void');
-    
+    Route::get('/journals/create', [JournalsController::class, 'create'])->name('journals.create');
+    Route::post('/journals', [JournalsController::class, 'store'])->name('journals.store');
+    Route::get('/journals', [JournalsController::class, 'index'])->name('journals.index');
+
     // ============================================
     // REPORTS
     // ============================================
@@ -56,4 +59,4 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

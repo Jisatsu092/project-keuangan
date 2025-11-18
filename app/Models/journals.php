@@ -28,9 +28,10 @@ class journals extends Model
     ];
 
     // Relationships
+    
     public function details(): HasMany
     {
-        return $this->hasMany(journal_details::class);
+        return $this->hasMany(journal_details::class, 'journal_id');
     }
 
     public function postedBy(): BelongsTo
