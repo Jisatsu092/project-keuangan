@@ -7,7 +7,7 @@ use App\Models\units;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Faculties extends Model
+class faculties extends Model
 {
     protected $fillable = [
         'code',

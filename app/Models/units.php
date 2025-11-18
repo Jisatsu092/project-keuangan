@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class units extends Model
 {
     protected $fillable = [
-        'faculty_id',
+        'faculties_id',
         'code',
         'name',
         'type',
@@ -22,9 +22,9 @@ class units extends Model
     ];
 
     // Relationships
-    public function faculty(): BelongsTo
+    public function faculties(): BelongsTo
     {
-        return $this->belongsTo(Faculties::class);
+        return $this->belongsTo(faculties::class);
     }
 
     public function accounts(): HasMany
@@ -45,12 +45,12 @@ class units extends Model
 
     public function scopeUnitPusat($query)
     {
-        return $query->where('type', 'unit_pusat')->whereNull('faculty_id');
+        return $query->where('type', 'unit_pusat')->whereNull('faculties_id');
     }
 
-    public function scopeByFaculty($query, $facultyId)
+    public function scopeByFaculties($query, $facultiesId)
     {
-        return $query->where('faculty_id', $facultyId);
+        return $query->where('faculties_id', $facultiesId);
     }
 
     // Helpers
@@ -61,7 +61,7 @@ class units extends Model
 
     public function isUnitPusat(): bool
     {
-        return $this->type === 'unit_pusat' && $this->faculty_id === null;
+        return $this->type === 'unit_pusat' && $this->faculties_id === null;
     }
 
     public function getFullNameAttribute(): string
@@ -70,7 +70,7 @@ class units extends Model
             return "{$this->name} (Pusat)";
         }
         
-        return "{$this->faculty->name} - {$this->name}";
+        return "{$this->faculties->name} - {$this->name}";
     }
 
     public function getDisplayCodeAttribute(): string
@@ -79,6 +79,6 @@ class units extends Model
             return "0{$this->code}"; // e.g., 02 untuk Keuangan
         }
         
-        return "{$this->faculty->code}{$this->code}"; // e.g., 11 untuk Syariah-Ekonomi Syariah
+        return "{$this->faculties->code}{$this->code}"; // e.g., 11 untuk Syariah-Ekonomi Syariah
     }
 }

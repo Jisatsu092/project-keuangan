@@ -1,20 +1,36 @@
 <?php
+// routes/web.php
 
 use App\Http\Controllers\AccountsController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\AccountController;
-use App\Http\Controllers\JournalController;
 use App\Http\Controllers\ReportController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\JournalsController;
+use App\Http\Controllers\FacultiesController;
+use App\Http\Controllers\UnitsController;
+use App\Http\Controllers\ActivityTypesController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-// Accounts Management
 Route::middleware(['auth'])->group(function () {
     
-    // Accounts CRUD
+    // ============================================
+    // MASTER DATA
+    // ============================================
+    Route::prefix('master')->name('master.')->group(function () {
+        // Faculties
+        Route::resource('faculties', FacultiesController::class)->except(['create', 'show', 'edit']);
+        
+        // Units
+        Route::resource('units', UnitsController::class)->except(['create', 'show', 'edit']);
+        
+        // Activity Types
+        Route::resource('activity-types', ActivityTypesController::class)->except(['create', 'show', 'edit']);
+    });
+    
+    // ============================================
+    // ACCOUNTS
+    // ============================================
     Route::resource('accounts', AccountsController::class);
     
     // Ajax endpoints
@@ -22,7 +38,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/accounts-units-by-faculty', [AccountsController::class, 'getUnitsByFaculty'])->name('accounts.units');
     Route::post('/accounts-generate-code', [AccountsController::class, 'generateCodePreview'])->name('accounts.generate-code');
     
-    // Reports
+    // ============================================
+    // JOURNALS
+    // ============================================
+    Route::resource('journals', JournalsController::class);
+    Route::post('/journals/{journal}/post', [JournalsController::class, 'post'])->name('journals.post');
+    Route::post('/journals/{journal}/void', [JournalsController::class, 'void'])->name('journals.void');
+    
+    // ============================================
+    // REPORTS
+    // ============================================
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/trial-balance', [ReportController::class, 'trialBalance'])->name('trial-balance');
         Route::get('/lpk', [ReportController::class, 'lpk'])->name('lpk');

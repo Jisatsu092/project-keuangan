@@ -1,14 +1,16 @@
 <?php
-// app/Http/Controllers/AccountController.php
+// app/Http/Controllers/AccountsController.php
 
 namespace App\Http\Controllers;
 
-use App\Models\accounts;
 use App\Models\account_types;
-use App\Models\operations;
-use App\Models\Faculties;
-use App\Models\units;
+use App\Models\Accounts;
+use App\Models\AccountType;
 use App\Models\activity_types;
+use App\Models\Operation;
+use App\Models\units;
+use App\Models\faculties;
+use App\Models\operations;
 use App\Services\AccountService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,19 +24,15 @@ class AccountsController extends Controller
         $this->accountService = $accountService;
     }
 
-    /**
-     * Display listing dengan tree view
-     */
     public function index(Request $request)
     {
         $search = $request->get('search');
         $filterType = $request->get('type');
         $filterFaculty = $request->get('faculty');
 
-        $query = accounts::with(['accountType', 'operation', 'faculty', 'unit'])
+        $query = Accounts::with(['accountType', 'operation', 'faculty', 'unit'])
             ->orderBy('code');
 
-        // Search
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('code', 'LIKE', "%{$search}%")
@@ -42,59 +40,51 @@ class AccountsController extends Controller
             });
         }
 
-        // Filter by account type
         if ($filterType) {
             $query->where('digit_1', $filterType);
         }
 
-        // Filter by faculty
         if ($filterFaculty !== null) {
             $query->where('digit_3', $filterFaculty);
         }
 
         $accounts = $query->paginate(50);
 
-        // Data untuk filter dropdown
+        // Master data for filters & form
         $accountTypes = account_types::active()->get();
-        $faculties = Faculties::active()->get();
+        $operations = operations::active()->get();
+        $faculties = faculties::active()->get();
+        $unitsPusat = Units::unitPusat()->active()->get();
+        $activityTypes = activity_types::active()->get();
 
-        return view('pages.accounts.index', compact('accounts', 'accountTypes', 'faculties', 'search', 'filterType', 'filterFaculty'));
+        return view('pages.accounts.index', compact(
+            'accounts', 
+            'accountTypes', 
+            'operations',
+            'faculties', 
+            'unitsPusat',
+            'activityTypes',
+            'search', 
+            'filterType', 
+            'filterFaculty'
+        ));
     }
 
-    /**
-     * Show tree view (Ajax)
-     */
-    public function tree(Request $request)
-    {
-        $parentCode = $request->get('parent');
-        $maxLevel = $request->get('max_level');
-
-        $tree = $this->accountService->getAccountTree($parentCode, $maxLevel);
-
-        return response()->json($tree);
-    }
-
-    /**
-     * Show create form
-     */
     public function create()
     {
         $accountTypes = account_types::active()->get();
         $operations = operations::active()->get();
-        $faculties = Faculties::active()->get();
+        $faculties = faculties::active()->get();
         $unitsPusat = units::unitPusat()->active()->get();
         $activityTypes = activity_types::active()->get();
 
-        return view('accounts.create', compact('accountTypes', 'operations', 'faculties', 'unitsPusat', 'activityTypes'));
+        return view('pages.accounts.create', compact('accountTypes', 'operations', 'faculties', 'unitsPusat', 'activityTypes'));
     }
 
-    /**
-     * Store new account
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'code' => 'required|string|min:7|max:20|unique:accounts,code',
+            'code' => 'required|string|min:7|max:20|unique:accounts,code|regex:/^[0-9]+$/',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'normal_balance' => 'required|in:debit,kredit',
@@ -104,7 +94,7 @@ class AccountsController extends Controller
         try {
             DB::beginTransaction();
 
-            $account = accounts::create([
+            $account = Accounts::create([
                 'code' => $validated['code'],
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
@@ -115,59 +105,44 @@ class AccountsController extends Controller
 
             DB::commit();
 
-            return redirect()
-                ->route('accounts.show', $account)
-                ->with('success', 'Akun berhasil dibuat!');
+            return back()->with('success', 'Akun berhasil dibuat!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()
-                ->withInput()
-                ->with('error', 'Gagal membuat akun: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Gagal membuat akun: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Show detail account
-     */
-    public function show(accounts $account)
+    public function show(Accounts $account)
     {
         $account->load(['accountType', 'operation', 'faculty', 'unit', 'activityType', 'parent', 'children']);
 
-        // Get breadcrumb (hierarchy path)
         $breadcrumb = $account->breadcrumb;
 
-        // Get recent transactions (5 terakhir)
         $recentTransactions = $account->journalDetails()
             ->with('journal')
             ->latest()
             ->take(5)
             ->get();
 
-        return view('accounts.show', compact('account', 'breadcrumb', 'recentTransactions'));
+        return view('pages.accounts.show', compact('account', 'breadcrumb', 'recentTransactions'));
     }
 
-    /**
-     * Show edit form
-     */
-    public function edit(accounts $account)
+    public function edit(Accounts $account)
     {
         $accountTypes = account_types::active()->get();
         $operations = operations::active()->get();
-        $faculties = Faculties::active()->get();
+        $faculties = faculties::active()->get();
         $unitsPusat = units::unitPusat()->active()->get();
         $activityTypes = activity_types::active()->get();
 
-        return view('accounts.edit', compact('account', 'accountTypes', 'operations', 'faculties', 'unitsPusat', 'activityTypes'));
+        return view('pages.accounts.edit', compact('account', 'accountTypes', 'operations', 'faculties', 'unitsPusat', 'activityTypes'));
     }
 
-    /**
-     * Update account
-     */
-    public function update(Request $request, accounts $account)
+    public function update(Request $request, Accounts $account)
     {
         $validated = $request->validate([
-            'code' => 'required|string|min:7|max:20|unique:accounts,code,' . $account->id,
+            'code' => 'required|string|min:7|max:20|unique:accounts,code,' . $account->id . '|regex:/^[0-9]+$/',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'normal_balance' => 'required|in:debit,kredit',
@@ -189,41 +164,32 @@ class AccountsController extends Controller
             DB::commit();
 
             return redirect()
-                ->route('accounts.show', $account)
+                ->route('pages.accounts.show', $account)
                 ->with('success', 'Akun berhasil diupdate!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()
-                ->withInput()
-                ->with('error', 'Gagal update akun: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Gagal update akun: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Delete account
-     */
-    public function destroy(accounts $account)
+    public function destroy(Accounts $account)
     {
-        // Check apakah punya children
         if ($account->children()->exists()) {
             return back()->with('error', 'Tidak bisa hapus akun yang masih punya child accounts!');
         }
 
-        // Check apakah ada transaksi
         if ($account->journalDetails()->exists()) {
             return back()->with('error', 'Tidak bisa hapus akun yang sudah ada transaksinya!');
         }
 
         try {
             DB::beginTransaction();
-
             $account->delete();
-
             DB::commit();
 
             return redirect()
-                ->route('accounts.index')
+                ->route('pages.accounts.index')
                 ->with('success', 'Akun berhasil dihapus!');
 
         } catch (\Exception $e) {
@@ -232,9 +198,6 @@ class AccountsController extends Controller
         }
     }
 
-    /**
-     * Get units by faculty (Ajax)
-     */
     public function getUnitsByFaculty(Request $request)
     {
         $facultyId = $request->get('faculty_id');
@@ -248,9 +211,6 @@ class AccountsController extends Controller
         return response()->json($units);
     }
 
-    /**
-     * Generate code preview (Ajax)
-     */
     public function generateCodePreview(Request $request)
     {
         $components = [
@@ -264,7 +224,6 @@ class AccountsController extends Controller
         ];
 
         $code = $this->accountService->generateCode($components);
-
         $exists = $this->accountService->codeExists($code);
 
         return response()->json([

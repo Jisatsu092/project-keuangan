@@ -1,65 +1,98 @@
 <?php
+// app/Http/Controllers/FacultiesController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\faculties;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FacultiesController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $faculties = faculties::orderBy('code')->paginate(20);
+        return view('pages.master.faculties.index', compact('faculties'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'code' => 'required|string|size:1|unique:faculties,code|regex:/^[1-9]$/',
+            'name' => 'required|string|max:100',
+            'is_active' => 'boolean',
+        ], [
+            'code.regex' => 'Kode fakultas harus 1-9 (tidak boleh 0)',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            Faculties::create([
+                'code' => $validated['code'],
+                'name' => $validated['name'],
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
+
+            DB::commit();
+
+            return back()->with('success', 'Fakultas berhasil ditambahkan!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Gagal menambah fakultas: ' . $e->getMessage());
+        }
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(faculties $faculties)
+    public function update(Request $request, faculties $faculty)
     {
-        //
+        $validated = $request->validate([
+            'code' => 'required|string|size:1|regex:/^[1-9]$/|unique:faculties,code,' . $faculty->id,
+            'name' => 'required|string|max:100',
+            'is_active' => 'boolean',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $faculty->update([
+                'code' => $validated['code'],
+                'name' => $validated['name'],
+                'is_active' => $validated['is_active'] ?? true,
+            ]);
+
+            DB::commit();
+
+            return back()->with('success', 'Fakultas berhasil diupdate!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal update fakultas: ' . $e->getMessage());
+        }
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(faculties $faculties)
+    public function destroy(faculties $faculty)
     {
-        //
-    }
+        // Check if has units
+        if ($faculty->units()->exists()) {
+            return back()->with('error', 'Tidak bisa hapus fakultas yang masih punya prodi/unit!');
+        }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, faculties $faculties)
-    {
-        //
-    }
+        // Check if has accounts
+        if ($faculty->accounts()->exists()) {
+            return back()->with('error', 'Tidak bisa hapus fakultas yang masih digunakan di akun!');
+        }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(faculties $faculties)
-    {
-        //
+        try {
+            DB::beginTransaction();
+            $faculty->delete();
+            DB::commit();
+
+            return back()->with('success', 'Fakultas berhasil dihapus!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal hapus fakultas: ' . $e->getMessage());
+        }
     }
 }

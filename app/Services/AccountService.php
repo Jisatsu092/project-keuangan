@@ -3,37 +3,27 @@
 
 namespace App\Services;
 
-use App\Models\accounts;
 use App\Models\account_balances;
+use App\Models\Accounts;
 use App\Models\journal_details;
 use App\Models\JournalDetail;
 use Illuminate\Support\Facades\DB;
 
 class AccountService
 {
-    /**
-     * Generate account code dari component
-     */
     public function generateCode(array $components): string
     {
         return implode('', array_filter($components));
     }
 
-    /**
-     * Validate account code format
-     */
     public function validateCode(string $code): bool
     {
-        // Minimal 7 digit, semua numeric
         return strlen($code) >= 7 && ctype_digit($code);
     }
 
-    /**
-     * Check apakah code sudah exist
-     */
     public function codeExists(string $code, ?int $exceptId = null): bool
     {
-        $query = accounts::where('code', $code);
+        $query = Accounts::where('code', $code);
         
         if ($exceptId) {
             $query->where('id', '!=', $exceptId);
@@ -43,79 +33,87 @@ class AccountService
     }
 
     /**
-     * Get account tree (hierarchical)
+     * Get trial balance dengan hierarchy support
      */
-    public function getAccountTree(?string $parentCode = null, int $maxLevel = null): array
+    public function getTrialBalance(int $year, int $month): array
     {
-        $query = accounts::with(['accountType', 'operation', 'faculty', 'unit'])
-            ->orderBy('code');
+        // Get all accounts dengan balance
+        $accounts = Accounts::with(['balances' => function($q) use ($year, $month) {
+                $q->where('period_year', $year)
+                  ->where('period_month', $month);
+            }])
+            ->orderBy('code')
+            ->get();
 
-        if ($parentCode) {
-            // Get children dari parent tertentu
-            $query->where('parent_code', $parentCode);
-        } else {
-            // Get root accounts
-            $query->whereNull('parent_code')->orWhere('parent_code', '');
-        }
+        $data = [];
+        $totalDebit = 0;
+        $totalCredit = 0;
 
-        if ($maxLevel) {
-            $query->where('level', '<=', $maxLevel);
-        }
+        foreach ($accounts as $account) {
+            $balance = $account->balances->first();
+            
+            // Untuk header accounts, calculate total from children
+            if ($account->is_header) {
+                $childrenTotal = $account->calculateTotalFromChildren($year, $month);
+                $endingBalance = $childrenTotal['ending_balance'];
+            } else {
+                $endingBalance = $balance?->ending_balance ?? 0;
+            }
 
-        $accounts = $query->get();
+            // Skip jika balance = 0
+            if ($endingBalance == 0) {
+                continue;
+            }
 
-        return $accounts->map(function ($account) use ($maxLevel) {
-            return [
-                'id' => $account->id,
+            $debit = 0;
+            $credit = 0;
+
+            // Convert ending balance to debit/credit based on normal balance
+            if ($account->normal_balance === 'debit') {
+                if ($endingBalance > 0) {
+                    $debit = $endingBalance;
+                } else {
+                    $credit = abs($endingBalance);
+                }
+            } else {
+                if ($endingBalance > 0) {
+                    $credit = $endingBalance;
+                } else {
+                    $debit = abs($endingBalance);
+                }
+            }
+
+            $totalDebit += $debit;
+            $totalCredit += $credit;
+
+            $data[] = [
                 'code' => $account->code,
                 'name' => $account->name,
                 'level' => $account->level,
                 'is_header' => $account->is_header,
-                'can_transaction' => $account->can_transaction,
-                'normal_balance' => $account->normal_balance,
-                'has_children' => $account->children()->exists(),
-                'children' => $account->is_header && (!$maxLevel || $account->level < $maxLevel)
-                    ? $this->getAccountTree($account->code, $maxLevel)
-                    : [],
+                'debit' => $debit,
+                'credit' => $credit,
+                'parent_code' => $account->parent_code,
             ];
-        })->toArray();
-    }
-
-    /**
-     * Get account dengan balance
-     */
-    public function getAccountWithBalance(string $code, int $year, int $month): ?array
-    {
-        $account = accounts::where('code', $code)->first();
-        
-        if (!$account) {
-            return null;
         }
 
-        $balance = account_balances::where('account_code', $code)
-            ->where('period_year', $year)
-            ->where('period_month', $month)
-            ->first();
-
         return [
-            'account' => $account,
-            'balance' => $balance,
-            'beginning_balance' => $balance?->beginning_balance ?? 0,
-            'total_debit' => $balance?->total_debit ?? 0,
-            'total_credit' => $balance?->total_credit ?? 0,
-            'ending_balance' => $balance?->ending_balance ?? 0,
+            'data' => $data,
+            'total_debit' => $totalDebit,
+            'total_credit' => $totalCredit,
+            'is_balanced' => round($totalDebit, 2) === round($totalCredit, 2),
         ];
     }
 
     /**
-     * Calculate balance untuk account (dan update table account_balances)
+     * Calculate balance untuk account
      */
     public function calculateBalance(string $accountCode, int $year, int $month): void
     {
-        $account = accounts::where('code', $accountCode)->first();
+        $account = Accounts::where('code', $accountCode)->first();
         
         if (!$account) {
-            throw new \Exception("accounts {$accountCode} not found");
+            throw new \Exception("Account {$accountCode} not found");
         }
 
         // Get previous month balance
@@ -134,7 +132,7 @@ class AccountService
 
         $beginningBalance = $prevBalance?->ending_balance ?? 0;
 
-        // Sum debit & credit dari journal_details (hanya yang status posted)
+        // Sum debit & credit dari journal_details (only posted)
         $transactions = journal_details::whereHas('journal', function ($q) use ($year, $month) {
                 $q->where('status', 'posted')
                   ->whereYear('transaction_date', $year)
@@ -147,14 +145,14 @@ class AccountService
         $totalDebit = $transactions->total_debit ?? 0;
         $totalCredit = $transactions->total_credit ?? 0;
 
-        // Calculate ending balance based on normal balance
+        // Calculate ending balance
         if ($account->normal_balance === 'debit') {
             $endingBalance = $beginningBalance + $totalDebit - $totalCredit;
         } else {
             $endingBalance = $beginningBalance + $totalCredit - $totalDebit;
         }
 
-        // Update or create balance record
+        // Update or create balance
         account_balances::updateOrCreate(
             [
                 'account_code' => $accountCode,
@@ -172,125 +170,39 @@ class AccountService
     }
 
     /**
-     * Calculate balance untuk semua children account (recursive)
+     * Calculate all balances untuk period tertentu
      */
-    public function calculateBalanceRecursive(string $parentCode, int $year, int $month): void
+    public function calculateAllBalances(int $year, int $month): void
     {
-        $parent = accounts::where('code', $parentCode)->first();
-        
-        if (!$parent) {
-            return;
+        // Calculate untuk semua leaf accounts (yang bisa transaction)
+        $accounts = Accounts::where('can_transaction', true)->get();
+
+        foreach ($accounts as $account) {
+            $this->calculateBalance($account->code, $year, $month);
         }
 
-        // Calculate untuk account ini
-        if (!$parent->is_header) {
-            $this->calculateBalance($parentCode, $year, $month);
-        }
-
-        // Calculate untuk children
-        $children = accounts::where('parent_code', $parentCode)->get();
-        foreach ($children as $child) {
-            $this->calculateBalanceRecursive($child->code, $year, $month);
-        }
-
-        // Kalau parent adalah header, sum dari children
-        if ($parent->is_header) {
-            $this->calculateHeaderBalance($parentCode, $year, $month);
-        }
-    }
-
-    /**
-     * Calculate balance untuk header account (sum dari children)
-     */
-    protected function calculateHeaderBalance(string $headerCode, int $year, int $month): void
-    {
-        $children = accounts::where('parent_code', $headerCode)->get();
-
-        $totalBeginning = 0;
-        $totalDebit = 0;
-        $totalCredit = 0;
-        $totalEnding = 0;
-
-        foreach ($children as $child) {
-            $balance = account_balances::where('account_code', $child->code)
-                ->where('period_year', $year)
-                ->where('period_month', $month)
-                ->first();
-
-            if ($balance) {
-                $totalBeginning += $balance->beginning_balance;
-                $totalDebit += $balance->total_debit;
-                $totalCredit += $balance->total_credit;
-                $totalEnding += $balance->ending_balance;
-            }
-        }
-
-        account_balances::updateOrCreate(
-            [
-                'account_code' => $headerCode,
-                'period_year' => $year,
-                'period_month' => $month,
-            ],
-            [
-                'beginning_balance' => $totalBeginning,
-                'total_debit' => $totalDebit,
-                'total_credit' => $totalCredit,
-                'ending_balance' => $totalEnding,
-                'last_calculated_at' => now(),
-            ]
-        );
-    }
-
-    /**
-     * Get trial balance
-     */
-    public function getTrialBalance(int $year, int $month): array
-    {
-        $accounts = accounts::where('can_transaction', true)
-            ->with(['accountType', 'balances' => function ($q) use ($year, $month) {
-                $q->where('period_year', $year)->where('period_month', $month);
-            }])
-            ->orderBy('code')
+        // Calculate untuk header accounts (aggregate dari children)
+        $headerAccounts = Accounts::where('is_header', true)
+            ->orderBy('level', 'desc') // Start from deepest level
             ->get();
 
-        $totalDebit = 0;
-        $totalCredit = 0;
-
-        $data = $accounts->map(function ($account) use (&$totalDebit, &$totalCredit) {
-            $balance = $account->balances->first();
-            $endingBalance = $balance?->ending_balance ?? 0;
-
-            $debit = 0;
-            $credit = 0;
-
-            if ($endingBalance != 0) {
-                if ($account->normal_balance === 'debit') {
-                    $debit = $endingBalance > 0 ? $endingBalance : 0;
-                    $credit = $endingBalance < 0 ? abs($endingBalance) : 0;
-                } else {
-                    $credit = $endingBalance > 0 ? $endingBalance : 0;
-                    $debit = $endingBalance < 0 ? abs($endingBalance) : 0;
-                }
-            }
-
-            $totalDebit += $debit;
-            $totalCredit += $credit;
-
-            return [
-                'code' => $account->code,
-                'name' => $account->name,
-                'debit' => $debit,
-                'credit' => $credit,
-            ];
-        })->filter(function ($item) {
-            return $item['debit'] > 0 || $item['credit'] > 0;
-        })->values();
-
-        return [
-            'data' => $data,
-            'total_debit' => $totalDebit,
-            'total_credit' => $totalCredit,
-            'is_balanced' => round($totalDebit, 2) === round($totalCredit, 2),
-        ];
+        foreach ($headerAccounts as $header) {
+            $childrenTotal = $header->calculateTotalFromChildren($year, $month);
+            
+            account_balances::updateOrCreate(
+                [
+                    'account_code' => $header->code,
+                    'period_year' => $year,
+                    'period_month' => $month,
+                ],
+                [
+                    'beginning_balance' => 0, // Headers don't have beginning balance
+                    'total_debit' => $childrenTotal['total_debit'],
+                    'total_credit' => $childrenTotal['total_credit'],
+                    'ending_balance' => $childrenTotal['ending_balance'],
+                    'last_calculated_at' => now(),
+                ]
+            );
+        }
     }
 }

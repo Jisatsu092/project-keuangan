@@ -25,7 +25,7 @@ class ReportController extends Controller
 
         $report = $this->accountService->getTrialBalance($year, $month);
 
-        return view('reports.trial-balance', compact('report', 'year', 'month'));
+        return view('pages.reports.trial-balance.index', compact('report', 'year', 'month'));
     }
 
     /**

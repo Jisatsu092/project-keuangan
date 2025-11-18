@@ -1,17 +1,19 @@
 <?php
-// app/Models/accounts.php
+// app/Models/Accounts.php
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model; 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
 
-class accounts extends Model
+class Accounts extends Model
 {
     use SoftDeletes;
+
+    protected $table = 'accounts';
 
     protected $fillable = [
         'code',
@@ -45,12 +47,12 @@ class accounts extends Model
     // Relationships
     public function parent(): BelongsTo
     {
-        return $this->belongsTo(accounts::class, 'parent_code', 'code');
+        return $this->belongsTo(Accounts::class, 'parent_code', 'code');
     }
 
     public function children(): HasMany
     {
-        return $this->hasMany(accounts::class, 'parent_code', 'code');
+        return $this->hasMany(Accounts::class, 'parent_code', 'code');
     }
 
     public function accountType(): BelongsTo
@@ -183,11 +185,6 @@ class accounts extends Model
         return $this->normal_balance === 'kredit';
     }
 
-    public function getFullCodeAttribute(): string
-    {
-        return $this->code;
-    }
-
     public function getDisplayNameAttribute(): string
     {
         return "{$this->code} - {$this->name}";
@@ -210,26 +207,59 @@ class accounts extends Model
         return $breadcrumb;
     }
 
-    // Get all children recursively
     public function getAllDescendants(): array
     {
-        return accounts::where('code', 'LIKE', $this->code . '%')
+        return Accounts::where('code', 'LIKE', $this->code . '%')
                       ->where('code', '!=', $this->code)
                       ->orderBy('code')
                       ->get()
                       ->toArray();
     }
 
-    // Check if this account is ancestor of another
-    public function isAncestorOf(accounts $account): bool
+    public function isAncestorOf(Accounts $account): bool
     {
         return str_starts_with($account->code, $this->code) && $account->code !== $this->code;
     }
 
-    // Check if this account is descendant of another
-    public function isDescendantOf(accounts $account): bool
+    public function isDescendantOf(Accounts $account): bool
     {
         return str_starts_with($this->code, $account->code) && $this->code !== $account->code;
     }
-}
 
+    // Get children with calculated balance
+    public function getChildrenWithBalance(int $year, int $month)
+    {
+        return $this->children()
+            ->with(['balances' => function($q) use ($year, $month) {
+                $q->where('period_year', $year)
+                  ->where('period_month', $month);
+            }])
+            ->orderBy('code')
+            ->get();
+    }
+
+    // Calculate total from children (for header accounts)
+    public function calculateTotalFromChildren(int $year, int $month): array
+    {
+        $children = $this->getChildrenWithBalance($year, $month);
+        
+        $totalDebit = 0;
+        $totalCredit = 0;
+        $totalBalance = 0;
+
+        foreach ($children as $child) {
+            $balance = $child->balances->first();
+            if ($balance) {
+                $totalDebit += $balance->total_debit;
+                $totalCredit += $balance->total_credit;
+                $totalBalance += $balance->ending_balance;
+            }
+        }
+
+        return [
+            'total_debit' => $totalDebit,
+            'total_credit' => $totalCredit,
+            'ending_balance' => $totalBalance,
+        ];
+    }
+}
