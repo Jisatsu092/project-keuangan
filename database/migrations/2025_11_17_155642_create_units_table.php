@@ -30,39 +30,39 @@ return new class extends Migration
         $teknik = DB::table('faculties')->where('code', '2')->value('id');
         $ekonomi = DB::table('faculties')->where('code', '3')->value('id');
 
-        DB::table('units')->insert([
-            // ============================================
-            // UNIT PUSAT (faculty_id = null)
-            // Ini untuk akun dengan digit_3 = 0
-            // ============================================
-            ['faculty_id' => null, 'code' => '1', 'name' => 'Rektorat', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => null, 'code' => '2', 'name' => 'Keuangan', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => null, 'code' => '3', 'name' => 'PTI', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => null, 'code' => '4', 'name' => 'SDM', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => null, 'code' => '5', 'name' => 'Akademik', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
+        // DB::table('units')->insert([
+        //     // ============================================
+        //     // UNIT PUSAT (faculty_id = null)
+        //     // Ini untuk akun dengan digit_3 = 0
+        //     // ============================================
+        //     ['faculty_id' => null, 'code' => '1', 'name' => 'Rektorat', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => null, 'code' => '2', 'name' => 'Keuangan', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => null, 'code' => '3', 'name' => 'PTI', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => null, 'code' => '4', 'name' => 'SDM', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => null, 'code' => '5', 'name' => 'Akademik', 'type' => 'unit_pusat', 'created_at' => now(), 'updated_at' => now()],
             
-            // ============================================
-            // PRODI FAKULTAS SYARIAH (code = 1)
-            // ============================================
-            ['faculty_id' => $syariah, 'code' => '1', 'name' => 'Ekonomi Syariah', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => $syariah, 'code' => '2', 'name' => 'Hukum Keluarga', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => $syariah, 'code' => '3', 'name' => 'Perbankan Syariah', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     // ============================================
+        //     // PRODI FAKULTAS SYARIAH (code = 1)
+        //     // ============================================
+        //     ['faculty_id' => $syariah, 'code' => '1', 'name' => 'Ekonomi Syariah', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => $syariah, 'code' => '2', 'name' => 'Hukum Keluarga', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => $syariah, 'code' => '3', 'name' => 'Perbankan Syariah', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
             
-            // ============================================
-            // PRODI FAKULTAS TEKNIK (code = 2)
-            // ============================================
-            ['faculty_id' => $teknik, 'code' => '1', 'name' => 'Teknik Informatika', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => $teknik, 'code' => '2', 'name' => 'Sistem Informasi', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => $teknik, 'code' => '3', 'name' => 'Teknik Sipil', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => $teknik, 'code' => '4', 'name' => 'Teknik Elektro', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     // ============================================
+        //     // PRODI FAKULTAS TEKNIK (code = 2)
+        //     // ============================================
+        //     ['faculty_id' => $teknik, 'code' => '1', 'name' => 'Teknik Informatika', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => $teknik, 'code' => '2', 'name' => 'Sistem Informasi', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => $teknik, 'code' => '3', 'name' => 'Teknik Sipil', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => $teknik, 'code' => '4', 'name' => 'Teknik Elektro', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
             
-            // ============================================
-            // PRODI FAKULTAS EKONOMI (code = 3)
-            // ============================================
-            ['faculty_id' => $ekonomi, 'code' => '1', 'name' => 'Manajemen', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => $ekonomi, 'code' => '2', 'name' => 'Akuntansi', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-            ['faculty_id' => $ekonomi, 'code' => '3', 'name' => 'Ekonomi Pembangunan', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
-        ]);
+        //     // ============================================
+        //     // PRODI FAKULTAS EKONOMI (code = 3)
+        //     // ============================================
+        //     ['faculty_id' => $ekonomi, 'code' => '1', 'name' => 'Manajemen', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => $ekonomi, 'code' => '2', 'name' => 'Akuntansi', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        //     ['faculty_id' => $ekonomi, 'code' => '3', 'name' => 'Ekonomi Pembangunan', 'type' => 'prodi', 'created_at' => now(), 'updated_at' => now()],
+        // ]);
     }
 
     public function down(): void

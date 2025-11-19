@@ -22,9 +22,9 @@
                 <x-dropdown-link :href="route('master.faculties.index')">
                     {{ __('Fakultas') }}
                 </x-dropdown-link>
-                <x-dropdown-link :href="route('master.units.index')">
+                {{-- <x-dropdown-link :href="route('master.units.index')">
                     {{ __('Unit/Prodi') }}
-                </x-dropdown-link>
+                </x-dropdown-link> --}}
                 <x-dropdown-link :href="route('master.activity-types.index')">
                     {{ __('Jenis Kegiatan') }}
                 </x-dropdown-link>

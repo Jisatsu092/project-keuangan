@@ -37,6 +37,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/accounts-tree', [AccountsController::class, 'tree'])->name('accounts.tree');
     Route::get('/accounts-units-by-faculty', [AccountsController::class, 'getUnitsByFaculty'])->name('accounts.units');
     Route::post('/accounts-generate-code', [AccountsController::class, 'generateCodePreview'])->name('accounts.generate-code');
+    Route::get('/accounts/check-duplicate', [AccountsController::class, 'checkDuplicate']);
 
     // ============================================
     // JOURNALS

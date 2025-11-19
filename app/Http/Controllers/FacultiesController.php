@@ -12,7 +12,13 @@ class FacultiesController extends Controller
     public function index()
     {
         $faculties = faculties::withCount(['prodis'])->orderBy('code')->paginate(20);
-        return view('pages.master.faculties.index', compact('faculties'));
+        
+        // TAMBAHKAN 2 BARIS INI
+        $unitsPusat = \App\Models\units::where('type', 'unit_pusat')
+            ->orderBy('code')
+            ->get();
+
+        return view('pages.master.faculties.index', compact('faculties', 'unitsPusat'));
     }
 
     public function store(Request $request)

@@ -20,11 +20,6 @@ return new class extends Migration
             
             $table->index('code');
         });
-
-        DB::table('operations')->insert([
-            ['code' => '1', 'name' => 'Operasional', 'description' => 'Kegiatan rutin operasional', 'created_at' => now(), 'updated_at' => now()],
-            ['code' => '2', 'name' => 'Program', 'description' => 'Program khusus/project', 'created_at' => now(), 'updated_at' => now()],
-        ]);
     }
 
     public function down(): void

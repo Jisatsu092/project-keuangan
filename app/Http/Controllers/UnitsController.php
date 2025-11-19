@@ -12,10 +12,18 @@ class UnitsController extends Controller
 {
     public function index()
     {
-        $units = units::with('faculty')->orderBy('faculty_id')->orderBy('code')->paginate(50);
-        $faculties = faculties::active()->get();
-        
-        return view('pages.master.units.index', compact('units', 'faculties'));
+        $faculties = faculties::with(['units' => function ($query) {
+            $query->orderBy('code');
+        }])
+            ->withCount('units')
+            ->orderBy('code')
+            ->paginate(50);
+
+        $unitsPusat = units::unitPusat()
+            ->orderBy('code')
+            ->get();
+
+        return view('pages.master.faculties.index', compact('faculties', 'unitsPusat'));
     }
 
     public function store(Request $request)
@@ -50,7 +58,6 @@ class UnitsController extends Controller
 
             DB::commit();
             return back()->with('success', 'units/Prodi berhasil ditambahkan!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->withInput()->with('error', 'Gagal menambah unit: ' . $e->getMessage());
@@ -90,7 +97,6 @@ class UnitsController extends Controller
 
             DB::commit();
             return back()->with('success', 'units/Prodi berhasil diupdate!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal update unit: ' . $e->getMessage());
@@ -109,7 +115,6 @@ class UnitsController extends Controller
             DB::commit();
 
             return back()->with('success', 'units/Prodi berhasil dihapus!');
-
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal hapus unit: ' . $e->getMessage());

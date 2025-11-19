@@ -11,14 +11,22 @@
             <h2 class="text-2xl font-bold text-gray-900">Daftar Akun</h2>
             <p class="mt-1 text-sm text-gray-600">Kelola Chart of Accounts (CoA) kampus</p>
         </div>
-        <button @click="toggleForm()" 
-                class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition">
-            <i class="fas" :class="showForm ? 'fa-times' : 'fa-plus'" class="mr-2"></i> 
-            <span x-text="showForm ? 'Tutup Form' : 'Tambah Akun'"></span>
-        </button>
+        <div class="flex gap-2">
+            <button @click="expandAll()" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm">
+                <i class="fas fa-expand-alt mr-2"></i> Expand All
+            </button>
+            <button @click="collapseAll()" class="px-4 py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-lg text-sm">
+                <i class="fas fa-compress-alt mr-2"></i> Collapse All
+            </button>
+            <button @click="toggleForm()" 
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition">
+                <i class="fas" :class="showForm ? 'fa-times' : 'fa-plus'" class="mr-2"></i> 
+                <span x-text="showForm ? 'Tutup Form' : 'Tambah Akun'"></span>
+            </button>
+        </div>
     </div>
 
-    <!-- Inline Create Form (Collapsible) -->
+    <!-- Inline Create Form -->
     <div x-show="showForm" x-collapse class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-lg p-6 mb-6 border border-blue-200">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
             <i class="fas fa-plus-circle text-blue-600 mr-2"></i> Tambah Akun Baru
@@ -27,176 +35,162 @@
         <form action="{{ route('accounts.store') }}" method="POST">
             @csrf
 
-            <!-- Code Generator Helper -->
             <div class="bg-white rounded-lg p-4 mb-4 border border-gray-200">
                 <p class="text-sm font-semibold text-gray-700 mb-3">
                     <i class="fas fa-calculator text-blue-600 mr-2"></i> Generator Kode (7 Digit)
                 </p>
                 
-                <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mb-3">
-                    <!-- Digit 1: Account Type -->
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
+                    <!-- D1: Account Type -->
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D1: Tipe</label>
-                        <select x-model="form.digit1" @change="updateCode" 
-                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                            <option value="0">0</option>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">D1: Tipe Akun</label>
+                        <select name="digit_1" x-model="form.digit1" @change="updateCode" required
+                                class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
+                            <option value="">Pilih</option>
                             @foreach($accountTypes as $type)
                                 <option value="{{ $type->code }}">{{ $type->code }} - {{ $type->name }}</option>
                             @endforeach
                         </select>
                     </div>
 
-                    <!-- Digit 2: Operation -->
+                    <!-- D2: Operation -->
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D2: Ops</label>
-                        <select x-model="form.digit2" @change="updateCode" 
-                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                            <option value="0">0</option>
-                            @foreach($operations as $op)
-                                <option value="{{ $op->code }}">{{ $op->code }} - {{ $op->name }}</option>
-                            @endforeach
+                        <label class="block text-xs font-medium text-gray-600 mb-1">D2: Operasi</label>
+                        <select name="digit_2" x-model="form.digit2" @change="updateCode" required
+                                :disabled="form.digit3 === '0'"
+                                class="w-full px-2 py-2 text-sm border border-gray-300 rounded disabled:bg-gray-100">
+                            <option value="1">1 - Operasional</option>
+                            <option value="2">2 - Program</option>
                         </select>
+                        <p class="text-xs text-gray-500 mt-1" x-show="form.digit3 === '0'">
+                            <i class="fas fa-info-circle"></i> Pusat hanya bisa Operasional
+                        </p>
                     </div>
 
-                    <!-- Digit 3: Faculty -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D3: Fak</label>
-                        <select x-model="form.digit3" @change="updateCode(); loadUnits()" 
-                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                            <option value="0">0 - Pusat</option>
-                            @foreach($faculties as $fac)
-                                <option value="{{ $fac->code }}">{{ $fac->code }} - {{ $fac->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <!-- Digit 4: Unit -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D4: Unit</label>
-                        <select x-model="form.digit4" @change="updateCode" 
-                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                            <option value="0">0</option>
-                            <template x-if="form.digit3 === '0'">
+                    <!-- D3-D4: Faculty + Unit (MERGED) -->
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-medium text-gray-600 mb-1">D3-D4: Fakultas → Unit</label>
+                        <select name="faculty_unit_code" x-model="form.facultyUnitCode" @change="updateCode(); checkOperationRestriction()" required
+                                class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
+                            <option value="">Pilih Fakultas/Unit</option>
+                            
+                            <!-- Unit Pusat -->
+                            <optgroup label="🏛️ Unit Pusat">
                                 @foreach($unitsPusat as $unit)
-                                    <option value="{{ $unit->code }}">{{ $unit->code }} - {{ $unit->name }}</option>
+                                    <option value="0{{ $unit->code }}">
+                                        0{{ $unit->code }} - Pusat → {{ $unit->name }}
+                                    </option>
                                 @endforeach
-                            </template>
-                            <template x-for="i in 9" :key="i">
-                                <option :value="i" x-text="i"></option>
-                            </template>
-                        </select>
-                    </div>
+                            </optgroup>
 
-                    <!-- Digit 5: Activity -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D5: Act</label>
-                        <select x-model="form.digit5" @change="updateCode" 
-                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                            @foreach($activityTypes as $act)
-                                <option value="{{ $act->code }}">{{ $act->code }} - {{ Str::limit($act->name, 10) }}</option>
+                            <!-- Fakultas + Units -->
+                            @foreach($faculties as $fac)
+                                <optgroup label="🎓 {{ $fac->name }}">
+                                    @foreach($fac->units as $unit)
+                                        <option value="{{ $fac->code }}{{ $unit->code }}">
+                                            {{ $fac->code }}{{ $unit->code }} - {{ $fac->name }} → {{ $unit->name }}
+                                        </option>
+                                    @endforeach
+                                </optgroup>
                             @endforeach
                         </select>
                     </div>
 
-                    <!-- Digit 6 -->
+                    <!-- D5: Category -->
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D6</label>
-                        <select x-model="form.digit6" @change="updateCode" 
-                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                            <template x-for="i in 10" :key="i-1">
-                                <option :value="i-1" x-text="i-1"></option>
-                            </template>
+                        <label class="block text-xs font-medium text-gray-600 mb-1">D5: Kategori</label>
+                        <select name="digit_5" x-model="form.digit5" @change="updateCode" required
+                                class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
+                            <option value="">Pilih</option>
+                            @for($i = 0; $i <= 9; $i++)
+                                <option value="{{ $i }}">{{ $i }}</option>
+                            @endfor
                         </select>
                     </div>
+                </div>
 
-                    <!-- Digit 7 -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D7</label>
-                        <select x-model="form.digit7" @change="updateCode" 
-                                class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500">
-                            <template x-for="i in 10" :key="i-1">
-                                <option :value="i-1" x-text="i-1"></option>
-                            </template>
-                        </select>
+                <!-- Sequence Mode (D6-D7) -->
+                <div class="border-t border-gray-200 pt-4">
+                    <p class="text-xs font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-hashtag text-purple-600 mr-1"></i> D6-D7: Detail Sequence
+                    </p>
+
+                    <div class="flex gap-4 mb-3">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="sequence_mode" value="auto" x-model="form.sequenceMode" @change="updateCode" checked class="mr-2">
+                            <span class="text-sm">🤖 Auto</span>
+                        </label>
+                        <label class="flex items-center cursor-pointer">
+                            <input type="radio" name="sequence_mode" value="manual" x-model="form.sequenceMode" @change="updateCode" class="mr-2">
+                            <span class="text-sm">✍️ Manual</span>
+                        </label>
+                    </div>
+
+                    <!-- Manual Input -->
+                    <div x-show="form.sequenceMode === 'manual'" x-collapse class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Digit 6</label>
+                            <select name="digit_6" x-model="form.digit6" @change="updateCode" class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
+                                <template x-for="i in 10" :key="i-1">
+                                    <option :value="i-1" x-text="i-1"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Digit 7</label>
+                            <select name="digit_7" x-model="form.digit7" @change="updateCode" class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
+                                <template x-for="i in 10" :key="i-1">
+                                    <option :value="i-1" x-text="i-1"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div x-show="form.sequenceMode === 'auto'" class="bg-green-50 border border-green-200 rounded p-2 text-xs text-green-800">
+                        <i class="fas fa-info-circle"></i> System akan auto-generate sequence
                     </div>
                 </div>
 
                 <!-- Generated Code Preview -->
-                <div class="flex items-center justify-between bg-gray-50 border border-gray-300 rounded p-3">
-                    <div>
-                        <p class="text-xs text-gray-500 mb-1">Kode yang dihasilkan:</p>
-                        <p class="text-2xl font-mono font-bold text-blue-600" x-text="generatedCode || '0000000'"></p>
-                    </div>
-                    <button type="button" @click="copyToManual" 
-                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
-                        <i class="fas fa-copy mr-1"></i> Copy
-                    </button>
+                <div class="mt-4 bg-gray-50 border border-gray-300 rounded p-3">
+                    <p class="text-xs text-gray-500 mb-1">Kode yang akan dibuat:</p>
+                    <p class="text-2xl font-mono font-bold text-blue-600" x-text="generatedCode || '0000000'"></p>
                 </div>
             </div>
 
-            <!-- Manual Input Fields -->
+            <!-- Account Details -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Code (Manual) -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Kode Akun <span class="text-red-500">*</span>
-                    </label>
-                    <input type="text" name="code" x-model="form.manualCode" required
-                           pattern="[0-9]{7,20}" maxlength="20"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-lg font-mono"
-                           placeholder="7-20 digit">
-                </div>
-
-                <!-- Name -->
-                <div>
+                <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         Nama Akun <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" name="name" required
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                           placeholder="Nama akun">
+                    <input type="text" name="name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Contoh: Kas Bank BCA">
                 </div>
 
-                <!-- Normal Balance -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Saldo Normal <span class="text-red-500">*</span>
-                    </label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Saldo Normal <span class="text-red-500">*</span></label>
                     <div class="flex gap-4">
-                        <label class="flex items-center">
-                            <input type="radio" name="normal_balance" value="debit" checked class="mr-2">
-                            <span>Debit</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="normal_balance" value="kredit" class="mr-2">
-                            <span>Kredit</span>
-                        </label>
+                        <label class="flex items-center"><input type="radio" name="normal_balance" value="debit" checked class="mr-2"><span>Debit</span></label>
+                        <label class="flex items-center"><input type="radio" name="normal_balance" value="kredit" class="mr-2"><span>Kredit</span></label>
                     </div>
                 </div>
 
-                <!-- Active Status -->
                 <div class="flex items-center pt-7">
-                    <input type="checkbox" name="is_active" value="1" checked class="h-4 w-4 text-blue-600 rounded mr-2">
-                    <label class="text-sm text-gray-900">Aktif</label>
+                    <input type="checkbox" name="is_active" value="1" checked class="h-4 w-4 rounded mr-2">
+                    <label class="text-sm">Aktif</label>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Deskripsi</label>
+                    <textarea name="description" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></textarea>
                 </div>
             </div>
 
-            <!-- Description -->
-            <div class="mt-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Deskripsi (Opsional)</label>
-                <textarea name="description" rows="2"
-                          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                          placeholder="Deskripsi detail akun"></textarea>
-            </div>
-
-            <!-- Buttons -->
             <div class="mt-4 flex gap-2">
-                <button type="submit" 
-                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
                     <i class="fas fa-save mr-2"></i> Simpan
                 </button>
-                <button type="button" @click="toggleForm()" 
-                        class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg">
+                <button type="button" @click="toggleForm()" class="px-6 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg">
                     <i class="fas fa-times mr-2"></i> Batal
                 </button>
             </div>
@@ -205,101 +199,187 @@
 
     <!-- Filter & Search -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <form method="GET" action="{{ route('accounts.index') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <!-- Search -->
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-search"></i> Cari
-                </label>
-                <input type="text" name="search" value="{{ $search }}" 
-                       placeholder="Kode atau Nama"
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <label class="block text-sm font-medium text-gray-700 mb-2"><i class="fas fa-search"></i> Cari</label>
+                <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Kode atau Nama" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
             </div>
 
-            <!-- Filter Type -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Tipe</label>
                 <select name="type" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
                     <option value="">Semua</option>
                     @foreach($accountTypes as $type)
-                        <option value="{{ $type->code }}" @selected($filterType == $type->code)>
-                            {{ $type->code }} - {{ $type->name }}
-                        </option>
+                        <option value="{{ $type->code }}">{{ $type->code }} - {{ $type->name }}</option>
                     @endforeach
                 </select>
             </div>
 
-            <!-- Filter Faculty -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Operasi</label>
+                <select name="operation" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                    <option value="">Semua</option>
+                    <option value="0">0 - Operasional</option>
+                    <option value="1">1 - Program</option>
+                </select>
+            </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Fakultas</label>
                 <select name="faculty" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
                     <option value="">Semua</option>
-                    <option value="0" @selected($filterFaculty === '0')>0 - Pusat</option>
+                    <option value="0">0 - Pusat</option>
                     @foreach($faculties as $fac)
-                        <option value="{{ $fac->code }}" @selected($filterFaculty == $fac->code)>
-                            {{ $fac->code }} - {{ $fac->name }}
-                        </option>
+                        <option value="{{ $fac->code }}">{{ $fac->code }} - {{ $fac->name }}</option>
                     @endforeach
                 </select>
             </div>
 
-            <div class="md:col-span-4 flex gap-2">
-                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
-                    Cari
-                </button>
-                <a href="{{ route('accounts.index') }}" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg">
-                    Reset
-                </a>
+            <div class="md:col-span-5 flex gap-2">
+                <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"><i class="fas fa-filter mr-2"></i> Filter</button>
+                <a href="{{ route('accounts.index') }}" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"><i class="fas fa-redo mr-2"></i> Reset</a>
             </div>
         </form>
     </div>
 
-    <!-- Table (sama kayak sebelumnya, gua skip biar gak kepanjangan) -->
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipe</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Level</th>
-                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                @forelse($accounts as $account)
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 font-mono text-sm">{{ $account->code }}</td>
-                    <td class="px-6 py-4 text-sm">{{ $account->name }}</td>
-                    <td class="px-6 py-4 text-sm">
-                        @if($account->accountType)
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                                {{ $account->accountType->name }}
-                            </span>
-                        @endif
-                    </td>
-                    <td class="px-6 py-4 text-sm">Level {{ $account->level }}</td>
-                    <td class="px-6 py-4 text-right text-sm">
-                        <a href="{{ route('accounts.show', $account) }}" class="text-blue-600 hover:text-blue-900 mr-2">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        <a href="{{ route('accounts.edit', $account) }}" class="text-yellow-600 hover:text-yellow-900 mr-2">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                    </td>
-                </tr>
-                @empty
-                <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-gray-500">
-                        Tidak ada data
-                    </td>
-                </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+    <!-- Multi-Level Expandable Structure -->
+    <div class="space-y-4">
+        @forelse($groupedAccounts as $typeCode => $typeData)
+        <div class="bg-white rounded-lg shadow-md border-l-4 border-blue-600">
+            
+            <!-- Level 1: Account Type -->
+            <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-150 cursor-pointer"
+                 @click="toggle('type_{{ $typeCode }}')">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center justify-center w-12 h-12 bg-blue-600 text-white rounded-lg">
+                        <span class="text-2xl font-bold">{{ $typeCode }}</span>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">{{ $typeData['name'] }}</h3>
+                        <p class="text-sm text-gray-600">{{ $typeData['count'] }} akun</p>
+                    </div>
+                </div>
+                <i class="fas fa-chevron-down text-gray-600 transition-transform text-xl" :class="isExpanded('type_{{ $typeCode }}') && 'rotate-180'"></i>
+            </div>
 
-    <div class="mt-6">{{ $accounts->links() }}</div>
+            <div x-show="isExpanded('type_{{ $typeCode }}')" x-collapse>
+                @foreach($typeData['operations'] as $opCode => $opData)
+                
+                <!-- Level 2: Operation -->
+                <div class="border-t border-gray-200">
+                    <div class="flex items-center justify-between p-3 pl-8 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                         @click="toggle('op_{{ $typeCode }}_{{ $opCode }}')">
+                        <div class="flex items-center gap-3">
+                            <i class="fas {{ $opCode == 0 ? 'fa-cog text-green-600' : 'fa-project-diagram text-purple-600' }}"></i>
+                            <div>
+                                <h4 class="font-semibold text-gray-900">{{ $opCode == 0 ? 'Operasional' : 'Program' }}</h4>
+                                <p class="text-xs text-gray-500">{{ $opData['count'] }} akun</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down text-gray-400 transition-transform" :class="isExpanded('op_{{ $typeCode }}_{{ $opCode }}') && 'rotate-180'"></i>
+                    </div>
+
+                    <div x-show="isExpanded('op_{{ $typeCode }}_{{ $opCode }}')" x-collapse>
+                        @foreach($opData['faculties'] as $facCode => $facData)
+                        
+                        <!-- Level 3: Faculty -->
+                        <div class="border-t border-gray-100">
+                            <div class="flex items-center justify-between p-3 pl-16 bg-white hover:bg-gray-50 cursor-pointer"
+                                 @click="toggle('fac_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}')">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas {{ $facCode == 0 ? 'fa-landmark text-orange-600' : 'fa-university text-blue-600' }}"></i>
+                                    <div>
+                                        <h5 class="font-semibold text-gray-800">{{ $facData['name'] }}</h5>
+                                        <p class="text-xs text-gray-500">{{ $facData['count'] }} akun</p>
+                                    </div>
+                                </div>
+                                <i class="fas fa-chevron-down text-gray-300 transition-transform text-sm" :class="isExpanded('fac_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}') && 'rotate-180'"></i>
+                            </div>
+
+                            <div x-show="isExpanded('fac_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}')" x-collapse>
+                                @foreach($facData['units'] as $unitCode => $unitData)
+                                
+                                <!-- Level 4: Unit -->
+                                <div class="border-t border-gray-100">
+                                    <div class="flex items-center justify-between p-3 pl-24 bg-gray-50 hover:bg-blue-50 cursor-pointer"
+                                         @click="toggle('unit_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}')">
+                                        <div class="flex items-center gap-3">
+                                            <i class="fas fa-building text-indigo-600 text-sm"></i>
+                                            <div>
+                                                <h6 class="font-medium text-gray-800 text-sm">{{ $unitData['name'] }}</h6>
+                                                <p class="text-xs text-gray-500">{{ $unitData['count'] }} akun</p>
+                                            </div>
+                                        </div>
+                                        <i class="fas fa-chevron-down text-gray-300 transition-transform text-xs" :class="isExpanded('unit_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}') && 'rotate-180'"></i>
+                                    </div>
+
+                                    <div x-show="isExpanded('unit_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}')" x-collapse>
+                                        @foreach($unitData['categories'] as $catCode => $accounts)
+                                        
+                                        <!-- Level 5: Category -->
+                                        <div class="border-t border-gray-50">
+                                            <div class="flex items-center justify-between p-2 pl-32 bg-indigo-50 hover:bg-indigo-100 cursor-pointer"
+                                                 @click="toggle('cat_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}_{{ $catCode }}')">
+                                                <div class="flex items-center gap-2">
+                                                    <i class="fas fa-tag text-purple-600 text-xs"></i>
+                                                    <span class="text-sm font-medium text-gray-800">Kategori {{ $catCode }}</span>
+                                                    <span class="text-xs text-gray-500">({{ count($accounts) }})</span>
+                                                </div>
+                                                <i class="fas fa-chevron-down text-gray-300 transition-transform text-xs" :class="isExpanded('cat_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}_{{ $catCode }}') && 'rotate-180'"></i>
+                                            </div>
+
+                                            <div x-show="isExpanded('cat_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}_{{ $catCode }}')" x-collapse>
+                                                <!-- Accounts Table -->
+                                                <div class="bg-white">
+                                                    <table class="min-w-full">
+                                                        <thead class="bg-gray-100">
+                                                            <tr>
+                                                                <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
+                                                                <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                                                                <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                                                                <th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody class="divide-y divide-gray-100">
+                                                            @foreach($accounts as $account)
+                                                            <tr class="hover:bg-blue-50">
+                                                                <td class="px-6 py-3 font-mono text-sm font-bold text-blue-600">{{ $account->code }}</td>
+                                                                <td class="px-6 py-3 text-sm">{{ $account->name }}</td>
+                                                                <td class="px-6 py-3 text-sm">
+                                                                    <span class="px-2 py-1 rounded text-xs {{ $account->normal_balance == 'debit' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800' }}">
+                                                                        {{ ucfirst($account->normal_balance) }}
+                                                                    </span>
+                                                                </td>
+                                                                <td class="px-6 py-3 text-right space-x-2">
+                                                                    <a href="{{ route('accounts.show', $account) }}" class="text-blue-600 hover:text-blue-900"><i class="fas fa-eye"></i></a>
+                                                                    <a href="{{ route('accounts.edit', $account) }}" class="text-yellow-600 hover:text-yellow-900"><i class="fas fa-edit"></i></a>
+                                                                </td>
+                                                            </tr>
+                                                            @endforeach
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @empty
+        <div class="bg-white rounded-lg shadow p-12 text-center">
+            <i class="fas fa-inbox text-gray-300 text-6xl mb-4"></i>
+            <p class="text-gray-500 text-lg">Tidak ada data akun</p>
+        </div>
+        @endforelse
+    </div>
 </div>
 
 @push('scripts')
@@ -307,50 +387,54 @@
 function accountsPage() {
     return {
         showForm: false,
+        expanded: {},
         form: {
-            digit1: '0',
+            digit1: '',
             digit2: '0',
-            digit3: '0',
-            digit4: '0',
-            digit5: '0',
+            digit3: '',
+            facultyUnitCode: '',
+            digit5: '',
+            sequenceMode: 'auto',
             digit6: '0',
-            digit7: '0',
-            manualCode: ''
+            digit7: '0'
         },
         generatedCode: '',
 
         toggleForm() {
             this.showForm = !this.showForm;
-            if (this.showForm) {
-                this.resetForm();
-            }
         },
 
-        resetForm() {
-            this.form = {
-                digit1: '0',
-                digit2: '0',
-                digit3: '0',
-                digit4: '0',
-                digit5: '0',
-                digit6: '0',
-                digit7: '0',
-                manualCode: ''
-            };
-            this.updateCode();
+        toggle(key) {
+            this.expanded[key] = !this.expanded[key];
+        },
+
+        isExpanded(key) {
+            return this.expanded[key] === true;
+        },
+
+        expandAll() {
+            // Get all possible keys from DOM
+            const keys = ['type', 'op', 'fac', 'unit', 'cat'];
+            keys.forEach(prefix => {
+                document.querySelectorAll(`[\\@click^="toggle('${prefix}_"]`).forEach(el => {
+                    const match = el.getAttribute('@click').match(/toggle\('([^']+)'\)/);
+                    if (match) this.expanded[match[1]] = true;
+                });
+            });
+        },
+
+        collapseAll() {
+            this.expanded = {};
+        },
+
+        checkOperationRestriction() {
+            this.form.digit3 = this.form.facultyUnitCode ? this.form.facultyUnitCode[0] : '0';
+            if (this.form.digit3 === '0') this.form.digit2 = '0';
         },
 
         updateCode() {
-            this.generatedCode = this.form.digit1 + this.form.digit2 + this.form.digit3 + 
-                                this.form.digit4 + this.form.digit5 + this.form.digit6 + this.form.digit7;
-        },
-
-        copyToManual() {
-            this.form.manualCode = this.generatedCode;
-        },
-
-        loadUnits() {
-            // Future: Dynamic load units via AJAX based on faculty
+            const seq = this.form.sequenceMode === 'auto' ? 'XX' : (this.form.digit6 || '0') + (this.form.digit7 || '0');
+            this.generatedCode = (this.form.digit1 || '0') + (this.form.digit2 || '0') + (this.form.facultyUnitCode || '00') + (this.form.digit5 || '0') + seq;
         }
     }
 }
