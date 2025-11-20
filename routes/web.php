@@ -8,6 +8,7 @@ use App\Http\Controllers\FacultiesController;
 use App\Http\Controllers\UnitsController;
 use App\Http\Controllers\ActivityTypesController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\OperationsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -20,6 +21,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('master')->name('master.')->group(function () {
         // Faculties
         Route::resource('faculties', FacultiesController::class)->except(['create', 'show', 'edit']);
+        Route::resource('operations', OperationsController::class)->except(['create', 'show', 'edit']);
 
         // Units
         Route::resource('units', UnitsController::class)->except(['create', 'show', 'edit']);
@@ -37,6 +39,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/accounts-tree', [AccountsController::class, 'tree'])->name('accounts.tree');
     Route::get('/accounts-units-by-faculty', [AccountsController::class, 'getUnitsByFaculty'])->name('accounts.units');
     Route::post('/accounts-generate-code', [AccountsController::class, 'generateCodePreview'])->name('accounts.generate-code');
+    Route::get('/accounts/operations-by-type', [AccountsController::class, 'getOperationsByType']);
     Route::get('/accounts/check-duplicate', [AccountsController::class, 'checkDuplicate']);
 
     // ============================================
@@ -58,6 +61,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/lak', [ReportController::class, 'lak'])->name('lak');
         Route::get('/neraca-saldo', [ReportController::class, 'neracaSaldo'])->name('neraca-saldo');
     });
+
 });
 
 require __DIR__ . '/auth.php';

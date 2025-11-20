@@ -31,7 +31,7 @@ class AccountsController extends Controller
         $filterOperation = $request->get('operation');
         $filterFaculty = $request->get('faculty');
 
-        $query = Accounts::with(['accountType', 'faculty', 'unit'])
+        $query = Accounts::with(['accountType', 'operation', 'faculty', 'unit', 'activityType'])
             ->orderBy('code');
 
         // Apply filters
@@ -48,17 +48,14 @@ class AccountsController extends Controller
 
         $accounts = $query->get();
 
-        // Multi-level grouping
+        // Simplified grouping: Type → Operation (with category label)
         $groupedAccounts = [];
 
         foreach ($accounts as $account) {
             $type = $account->digit_1;
-            $operation = $account->digit_2;
-            $faculty = $account->digit_3;
-            $unit = $account->digit_4;
-            $category = $account->digit_5;
+            $opCode = $account->digit_2;
 
-            // Initialize structure
+            // Initialize type
             if (!isset($groupedAccounts[$type])) {
                 $groupedAccounts[$type] = [
                     'name' => $account->accountType->name ?? "Tipe {$type}",
@@ -67,61 +64,63 @@ class AccountsController extends Controller
                 ];
             }
 
-            if (!isset($groupedAccounts[$type]['operations'][$operation])) {
-                $groupedAccounts[$type]['operations'][$operation] = [
+            // Get operation details
+            $operation = operations::where('account_type_code', $type)
+                ->where('code', $opCode)
+                ->first();
+
+            $categoryType = $operation->category_type ?? null;
+            $opName = $operation->name ?? "Operasi {$opCode}";
+
+            // Group key: operation code + category type (untuk distinguish bentrok)
+            $opKey = $opCode . '_' . ($categoryType ?? 'default');
+
+            // Initialize operation
+            if (!isset($groupedAccounts[$type]['operations'][$opKey])) {
+                $groupedAccounts[$type]['operations'][$opKey] = [
+                    'code' => $opCode,
+                    'name' => $opName,
+                    'category_type' => $categoryType,
                     'count' => 0,
-                    'faculties' => [],
+                    'accounts' => [],
                 ];
             }
 
-            if (!isset($groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty])) {
-                $facultyName = $faculty == '0' ? 'Pusat' : ($account->faculty->name ?? "Fakultas {$faculty}");
-                $groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty] = [
-                    'name' => $facultyName,
-                    'count' => 0,
-                    'units' => [],
-                ];
-            }
-
-            if (!isset($groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty]['units'][$unit])) {
-                $unitName = $account->unit->name ?? "Unit {$unit}";
-                $groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty]['units'][$unit] = [
-                    'name' => $unitName,
-                    'count' => 0,
-                    'categories' => [],
-                ];
-            }
-
-            if (!isset($groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty]['units'][$unit]['categories'][$category])) {
-                $groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty]['units'][$unit]['categories'][$category] = [];
-            }
-
-            // Add account to final array
-            $groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty]['units'][$unit]['categories'][$category][] = $account;
-
-            // Increment counts
+            // Add account
+            $groupedAccounts[$type]['operations'][$opKey]['accounts'][] = $account;
+            $groupedAccounts[$type]['operations'][$opKey]['count']++;
             $groupedAccounts[$type]['count']++;
-            $groupedAccounts[$type]['operations'][$operation]['count']++;
-            $groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty]['count']++;
-            $groupedAccounts[$type]['operations'][$operation]['faculties'][$faculty]['units'][$unit]['count']++;
+        }
+
+        // Sort operations by category_type (operasional first, then program)
+        foreach ($groupedAccounts as &$typeData) {
+            $typeData['operations'] = collect($typeData['operations'])->sortBy(function ($op) {
+                $order = ['operasional' => 1, 'program' => 2, 'hibah' => 3, 'donasi' => 4, 'umum' => 5];
+                return $order[$op['category_type']] ?? 99;
+            })->toArray();
         }
 
         // Master data
         $accountTypes = account_types::active()->get();
+        $allOperations = operations::active()->get()->groupBy('account_type_code');
         $faculties = faculties::with('units')->active()->get();
         $unitsPusat = units::unitPusat()->active()->get();
+        $activityTypes = activity_types::active()->get();
 
         return view('pages.accounts.index', compact(
             'groupedAccounts',
             'accountTypes',
+            'allOperations',
             'faculties',
             'unitsPusat',
+            'activityTypes',
             'search',
             'filterType',
             'filterOperation',
             'filterFaculty'
         ));
     }
+
 
     public function create()
     {
@@ -138,7 +137,7 @@ class AccountsController extends Controller
     {
         $validated = $request->validate([
             'digit_1' => 'required|string|size:1',
-            'digit_2' => 'required|string|size:1|in:0,1',
+            'digit_2' => 'required|string|size:1',
             'faculty_unit_code' => 'required|string|size:2',
             'digit_5' => 'required|string|size:1',
             'sequence_mode' => 'required|in:auto,manual',
@@ -152,8 +151,17 @@ class AccountsController extends Controller
 
         // Business rule: Program hanya untuk fakultas
         $digit3 = substr($validated['faculty_unit_code'], 0, 1);
-        if ($validated['digit_2'] == '1' && $digit3 == '0') {
+
+        $operation = operations::where('account_type_code', $validated['digit_1'])
+            ->where('code', $validated['digit_2'])
+            ->first();
+
+        if ($operation && $operation->category_type === 'program' && $digit3 === '0') {
             return back()->withInput()->with('error', 'Program hanya tersedia untuk Fakultas (bukan Pusat)!');
+        }
+
+        if ($operation && $operation->category_type === 'operasional' && !in_array($digit3, ['0', '5'])) {
+            return back()->withInput()->with('error', 'Operasional hanya untuk Pusat atau Biro!');
         }
 
         try {
@@ -331,7 +339,6 @@ class AccountsController extends Controller
 
         return response()->json(['exists' => $exists]);
     }
-
     private function getNextSequence(string $headCode): string
     {
         $existingCodes = Accounts::where('code', 'LIKE', $headCode . '%')
@@ -348,5 +355,39 @@ class AccountsController extends Controller
         }
 
         throw new \Exception("Sequence penuh! Maksimal 99 akun untuk {$headCode}");
+    }
+
+    public function getOperationsByType(Request $request)
+    {
+        $accountTypeCode = $request->get('type');
+
+        $operations = operations::where('account_type_code', $accountTypeCode)
+            ->where('is_active', true)
+            ->orderBy('category_type')
+            ->orderBy('code')
+            ->get();
+
+        // Group by category_type untuk dropdown
+        $grouped = $operations->groupBy('category_type')->map(function ($items, $key) {
+            $labels = [
+                'operasional' => '🔵 Operasional',
+                'program' => '🟣 Program',
+                'hibah' => '🎁 Hibah',
+                'donasi' => '💝 Donasi',
+                'umum' => '📋 Umum',
+            ];
+
+            return [
+                'label' => $labels[$key] ?? '📋 Lainnya',
+                'items' => $items->map(fn($op) => [
+                    'code' => $op->code,
+                    'name' => $op->name,
+                    'category_type' => $op->category_type,
+                    'display' => "{$op->code} - {$op->name}",
+                ])
+            ];
+        });
+
+        return response()->json($grouped);
     }
 }

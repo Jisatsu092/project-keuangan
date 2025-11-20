@@ -26,7 +26,7 @@
         </div>
     </div>
 
-    <!-- Inline Create Form -->
+    <!-- Inline Form -->
     <div x-show="showForm" x-collapse class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-lg p-6 mb-6 border border-blue-200">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">
             <i class="fas fa-plus-circle text-blue-600 mr-2"></i> Tambah Akun Baru
@@ -44,7 +44,7 @@
                     <!-- D1: Account Type -->
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">D1: Tipe Akun</label>
-                        <select name="digit_1" x-model="form.digit1" @change="updateCode" required
+                        <select name="digit_1" x-model="form.digit1" @change="loadOperations(); updateCode()" required
                                 class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
                             <option value="">Pilih</option>
                             @foreach($accountTypes as $type)
@@ -53,63 +53,71 @@
                         </select>
                     </div>
 
-                    <!-- D2: Operation -->
+                    <!-- D2: Operation/Sub-Category -->
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D2: Operasi</label>
-                        <select name="digit_2" x-model="form.digit2" @change="updateCode" required
-                                :disabled="form.digit3 === '0'"
+                        <label class="block text-xs font-medium text-gray-600 mb-1">D2: Sub-Kategori</label>
+                        <select name="digit_2" x-model="form.digit2" @change="checkLocationRestriction(); updateCode()" required
+                                :disabled="!form.digit1"
                                 class="w-full px-2 py-2 text-sm border border-gray-300 rounded disabled:bg-gray-100">
-                            <option value="1">1 - Operasional</option>
-                            <option value="2">2 - Program</option>
+                            <option value="">Pilih</option>
+                            <template x-for="(group, key) in operationsGrouped" :key="key">
+                                <optgroup :label="group.label">
+                                    <template x-for="op in group.items" :key="op.code">
+                                        <option :value="op.code" x-text="op.display" :data-category="op.category_type"></option>
+                                    </template>
+                                </optgroup>
+                            </template>
                         </select>
-                        <p class="text-xs text-gray-500 mt-1" x-show="form.digit3 === '0'">
-                            <i class="fas fa-info-circle"></i> Pusat hanya bisa Operasional
-                        </p>
                     </div>
 
-                    <!-- D3-D4: Faculty + Unit (MERGED) -->
+                    <!-- D3-D4: Faculty + Unit -->
                     <div class="md:col-span-2">
                         <label class="block text-xs font-medium text-gray-600 mb-1">D3-D4: Fakultas → Unit</label>
-                        <select name="faculty_unit_code" x-model="form.facultyUnitCode" @change="updateCode(); checkOperationRestriction()" required
+                        <select name="faculty_unit_code" x-model="form.facultyUnitCode" @change="updateCode()" required
                                 class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
                             <option value="">Pilih Fakultas/Unit</option>
                             
                             <!-- Unit Pusat -->
-                            <optgroup label="🏛️ Unit Pusat">
+                            <optgroup label="🏛️ Unit Pusat" x-show="allowPusat">
                                 @foreach($unitsPusat as $unit)
-                                    <option value="0{{ $unit->code }}">
-                                        0{{ $unit->code }} - Pusat → {{ $unit->name }}
-                                    </option>
+                                    <option value="0{{ $unit->code }}">0{{ $unit->code }} - Pusat → {{ $unit->name }}</option>
                                 @endforeach
                             </optgroup>
 
-                            <!-- Fakultas + Units -->
-                            @foreach($faculties as $fac)
-                                <optgroup label="🎓 {{ $fac->name }}">
-                                    @foreach($fac->units as $unit)
-                                        <option value="{{ $fac->code }}{{ $unit->code }}">
-                                            {{ $fac->code }}{{ $unit->code }} - {{ $fac->name }} → {{ $unit->name }}
-                                        </option>
-                                    @endforeach
-                                </optgroup>
-                            @endforeach
+                            <!-- Biro -->
+                            <optgroup label="🏢 Biro" x-show="allowPusat">
+                                <option value="51">51 - Biro → Unit 1</option>
+                                <option value="52">52 - Biro → Unit 2</option>
+                            </optgroup>
+
+                            <!-- Fakultas -->
+                            <template x-if="allowFakultas">
+                                @foreach($faculties as $fac)
+                                    <optgroup label="🎓 {{ $fac->name }}">
+                                        @foreach($fac->units as $unit)
+                                            <option value="{{ $fac->code }}{{ $unit->code }}">{{ $fac->code }}{{ $unit->code }} - {{ $fac->name }} → {{ $unit->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </template>
                         </select>
+                        <p class="text-xs text-gray-500 mt-1" x-show="locationHint" x-text="locationHint"></p>
                     </div>
 
-                    <!-- D5: Category -->
+                    <!-- D5: Activity -->
                     <div>
-                        <label class="block text-xs font-medium text-gray-600 mb-1">D5: Kategori</label>
-                        <select name="digit_5" x-model="form.digit5" @change="updateCode" required
+                        <label class="block text-xs font-medium text-gray-600 mb-1">D5: Aktivitas</label>
+                        <select name="digit_5" x-model="form.digit5" @change="updateCode()" required
                                 class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
                             <option value="">Pilih</option>
-                            @for($i = 0; $i <= 9; $i++)
-                                <option value="{{ $i }}">{{ $i }}</option>
-                            @endfor
+                            @foreach($activityTypes as $act)
+                                <option value="{{ $act->code }}">{{ $act->code }} - {{ $act->name }}</option>
+                            @endforeach
                         </select>
                     </div>
                 </div>
 
-                <!-- Sequence Mode (D6-D7) -->
+                <!-- Sequence Mode -->
                 <div class="border-t border-gray-200 pt-4">
                     <p class="text-xs font-semibold text-gray-700 mb-2">
                         <i class="fas fa-hashtag text-purple-600 mr-1"></i> D6-D7: Detail Sequence
@@ -117,20 +125,19 @@
 
                     <div class="flex gap-4 mb-3">
                         <label class="flex items-center cursor-pointer">
-                            <input type="radio" name="sequence_mode" value="auto" x-model="form.sequenceMode" @change="updateCode" checked class="mr-2">
+                            <input type="radio" name="sequence_mode" value="auto" x-model="form.sequenceMode" @change="updateCode()" checked class="mr-2">
                             <span class="text-sm">🤖 Auto</span>
                         </label>
                         <label class="flex items-center cursor-pointer">
-                            <input type="radio" name="sequence_mode" value="manual" x-model="form.sequenceMode" @change="updateCode" class="mr-2">
+                            <input type="radio" name="sequence_mode" value="manual" x-model="form.sequenceMode" @change="updateCode()" class="mr-2">
                             <span class="text-sm">✍️ Manual</span>
                         </label>
                     </div>
 
-                    <!-- Manual Input -->
                     <div x-show="form.sequenceMode === 'manual'" x-collapse class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-1">Digit 6</label>
-                            <select name="digit_6" x-model="form.digit6" @change="updateCode" class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
+                            <select name="digit_6" x-model="form.digit6" @change="updateCode()" class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
                                 <template x-for="i in 10" :key="i-1">
                                     <option :value="i-1" x-text="i-1"></option>
                                 </template>
@@ -138,7 +145,7 @@
                         </div>
                         <div>
                             <label class="block text-xs font-medium text-gray-600 mb-1">Digit 7</label>
-                            <select name="digit_7" x-model="form.digit7" @change="updateCode" class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
+                            <select name="digit_7" x-model="form.digit7" @change="updateCode()" class="w-full px-2 py-2 text-sm border border-gray-300 rounded">
                                 <template x-for="i in 10" :key="i-1">
                                     <option :value="i-1" x-text="i-1"></option>
                                 </template>
@@ -151,7 +158,7 @@
                     </div>
                 </div>
 
-                <!-- Generated Code Preview -->
+                <!-- Code Preview -->
                 <div class="mt-4 bg-gray-50 border border-gray-300 rounded p-3">
                     <p class="text-xs text-gray-500 mb-1">Kode yang akan dibuat:</p>
                     <p class="text-2xl font-mono font-bold text-blue-600" x-text="generatedCode || '0000000'"></p>
@@ -161,14 +168,12 @@
             <!-- Account Details -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Nama Akun <span class="text-red-500">*</span>
-                    </label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Nama Akun <span class="text-red-500">*</span></label>
                     <input type="text" name="name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg" placeholder="Contoh: Kas Bank BCA">
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Saldo Normal <span class="text-red-500">*</span></label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Saldo Normal</label>
                     <div class="flex gap-4">
                         <label class="flex items-center"><input type="radio" name="normal_balance" value="debit" checked class="mr-2"><span>Debit</span></label>
                         <label class="flex items-center"><input type="radio" name="normal_balance" value="kredit" class="mr-2"><span>Kredit</span></label>
@@ -199,7 +204,7 @@
 
     <!-- Filter & Search -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
-        <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-2"><i class="fas fa-search"></i> Cari</label>
                 <input type="text" name="search" value="{{ $search ?? '' }}" placeholder="Kode atau Nama" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
@@ -216,15 +221,6 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Operasi</label>
-                <select name="operation" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                    <option value="">Semua</option>
-                    <option value="0">0 - Operasional</option>
-                    <option value="1">1 - Program</option>
-                </select>
-            </div>
-
-            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Fakultas</label>
                 <select name="faculty" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
                     <option value="">Semua</option>
@@ -235,14 +231,14 @@
                 </select>
             </div>
 
-            <div class="md:col-span-5 flex gap-2">
+            <div class="md:col-span-4 flex gap-2">
                 <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"><i class="fas fa-filter mr-2"></i> Filter</button>
                 <a href="{{ route('accounts.index') }}" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg"><i class="fas fa-redo mr-2"></i> Reset</a>
             </div>
         </form>
     </div>
 
-    <!-- Multi-Level Expandable Structure -->
+    <!-- Simplified Display (Option B) -->
     <div class="space-y-4">
         @forelse($groupedAccounts as $typeCode => $typeData)
         <div class="bg-white rounded-lg shadow-md border-l-4 border-blue-600">
@@ -263,113 +259,82 @@
             </div>
 
             <div x-show="isExpanded('type_{{ $typeCode }}')" x-collapse>
-                @foreach($typeData['operations'] as $opCode => $opData)
-                
-                <!-- Level 2: Operation -->
-                <div class="border-t border-gray-200">
-                    <div class="flex items-center justify-between p-3 pl-8 bg-gray-50 hover:bg-gray-100 cursor-pointer"
-                         @click="toggle('op_{{ $typeCode }}_{{ $opCode }}')">
-                        <div class="flex items-center gap-3">
-                            <i class="fas {{ $opCode == 0 ? 'fa-cog text-green-600' : 'fa-project-diagram text-purple-600' }}"></i>
-                            <div>
-                                <h4 class="font-semibold text-gray-900">{{ $opCode == 0 ? 'Operasional' : 'Program' }}</h4>
-                                <p class="text-xs text-gray-500">{{ $opData['count'] }} akun</p>
-                            </div>
+                @php
+                    $lastCategoryType = null;
+                @endphp
+
+                @foreach($typeData['operations'] as $opKey => $opData)
+                    @php
+                        $categoryType = $opData['category_type'];
+                    @endphp
+
+                    {{-- Category Label (only for grouped types like Beban) --}}
+                    @if($categoryType && $categoryType !== $lastCategoryType)
+                        <div class="bg-gray-100 px-6 py-2 border-t border-gray-200">
+                            <p class="text-sm font-semibold text-gray-700 uppercase">
+                                @if($categoryType == 'operasional') 🔵 OPERASIONAL
+                                @elseif($categoryType == 'program') 🟣 PROGRAM
+                                @elseif($categoryType == 'hibah') 🎁 HIBAH
+                                @elseif($categoryType == 'donasi') 💝 DONASI
+                                @elseif($categoryType == 'umum') 📋 UMUM
+                                @endif
+                            </p>
                         </div>
-                        <i class="fas fa-chevron-down text-gray-400 transition-transform" :class="isExpanded('op_{{ $typeCode }}_{{ $opCode }}') && 'rotate-180'"></i>
-                    </div>
+                        @php $lastCategoryType = $categoryType; @endphp
+                    @endif
 
-                    <div x-show="isExpanded('op_{{ $typeCode }}_{{ $opCode }}')" x-collapse>
-                        @foreach($opData['faculties'] as $facCode => $facData)
-                        
-                        <!-- Level 3: Faculty -->
-                        <div class="border-t border-gray-100">
-                            <div class="flex items-center justify-between p-3 pl-16 bg-white hover:bg-gray-50 cursor-pointer"
-                                 @click="toggle('fac_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}')">
-                                <div class="flex items-center gap-3">
-                                    <i class="fas {{ $facCode == 0 ? 'fa-landmark text-orange-600' : 'fa-university text-blue-600' }}"></i>
-                                    <div>
-                                        <h5 class="font-semibold text-gray-800">{{ $facData['name'] }}</h5>
-                                        <p class="text-xs text-gray-500">{{ $facData['count'] }} akun</p>
-                                    </div>
+                    {{-- Level 2: Operation/Sub-Category --}}
+                    <div class="border-t border-gray-200">
+                        <div class="flex items-center justify-between p-3 pl-8 bg-gray-50 hover:bg-gray-100 cursor-pointer"
+                             @click="toggle('op_{{ $typeCode }}_{{ $opKey }}')">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 bg-blue-100 text-blue-800 rounded flex items-center justify-center font-bold text-sm">{{ $opData['code'] }}</span>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900">{{ $opData['name'] }}</h4>
+                                    <p class="text-xs text-gray-500">{{ $opData['count'] }} akun</p>
                                 </div>
-                                <i class="fas fa-chevron-down text-gray-300 transition-transform text-sm" :class="isExpanded('fac_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}') && 'rotate-180'"></i>
                             </div>
+                            <i class="fas fa-chevron-down text-gray-400 transition-transform" :class="isExpanded('op_{{ $typeCode }}_{{ $opKey }}') && 'rotate-180'"></i>
+                        </div>
 
-                            <div x-show="isExpanded('fac_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}')" x-collapse>
-                                @foreach($facData['units'] as $unitCode => $unitData)
-                                
-                                <!-- Level 4: Unit -->
-                                <div class="border-t border-gray-100">
-                                    <div class="flex items-center justify-between p-3 pl-24 bg-gray-50 hover:bg-blue-50 cursor-pointer"
-                                         @click="toggle('unit_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}')">
-                                        <div class="flex items-center gap-3">
-                                            <i class="fas fa-building text-indigo-600 text-sm"></i>
-                                            <div>
-                                                <h6 class="font-medium text-gray-800 text-sm">{{ $unitData['name'] }}</h6>
-                                                <p class="text-xs text-gray-500">{{ $unitData['count'] }} akun</p>
-                                            </div>
-                                        </div>
-                                        <i class="fas fa-chevron-down text-gray-300 transition-transform text-xs" :class="isExpanded('unit_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}') && 'rotate-180'"></i>
-                                    </div>
-
-                                    <div x-show="isExpanded('unit_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}')" x-collapse>
-                                        @foreach($unitData['categories'] as $catCode => $accounts)
-                                        
-                                        <!-- Level 5: Category -->
-                                        <div class="border-t border-gray-50">
-                                            <div class="flex items-center justify-between p-2 pl-32 bg-indigo-50 hover:bg-indigo-100 cursor-pointer"
-                                                 @click="toggle('cat_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}_{{ $catCode }}')">
-                                                <div class="flex items-center gap-2">
-                                                    <i class="fas fa-tag text-purple-600 text-xs"></i>
-                                                    <span class="text-sm font-medium text-gray-800">Kategori {{ $catCode }}</span>
-                                                    <span class="text-xs text-gray-500">({{ count($accounts) }})</span>
-                                                </div>
-                                                <i class="fas fa-chevron-down text-gray-300 transition-transform text-xs" :class="isExpanded('cat_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}_{{ $catCode }}') && 'rotate-180'"></i>
-                                            </div>
-
-                                            <div x-show="isExpanded('cat_{{ $typeCode }}_{{ $opCode }}_{{ $facCode }}_{{ $unitCode }}_{{ $catCode }}')" x-collapse>
-                                                <!-- Accounts Table -->
-                                                <div class="bg-white">
-                                                    <table class="min-w-full">
-                                                        <thead class="bg-gray-100">
-                                                            <tr>
-                                                                <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
-                                                                <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
-                                                                <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
-                                                                <th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody class="divide-y divide-gray-100">
-                                                            @foreach($accounts as $account)
-                                                            <tr class="hover:bg-blue-50">
-                                                                <td class="px-6 py-3 font-mono text-sm font-bold text-blue-600">{{ $account->code }}</td>
-                                                                <td class="px-6 py-3 text-sm">{{ $account->name }}</td>
-                                                                <td class="px-6 py-3 text-sm">
-                                                                    <span class="px-2 py-1 rounded text-xs {{ $account->normal_balance == 'debit' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800' }}">
-                                                                        {{ ucfirst($account->normal_balance) }}
-                                                                    </span>
-                                                                </td>
-                                                                <td class="px-6 py-3 text-right space-x-2">
-                                                                    <a href="{{ route('accounts.show', $account) }}" class="text-blue-600 hover:text-blue-900"><i class="fas fa-eye"></i></a>
-                                                                    <a href="{{ route('accounts.edit', $account) }}" class="text-yellow-600 hover:text-yellow-900"><i class="fas fa-edit"></i></a>
-                                                                </td>
-                                                            </tr>
-                                                            @endforeach
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
+                        {{-- Level 3: Accounts Table --}}
+                        <div x-show="isExpanded('op_{{ $typeCode }}_{{ $opKey }}')" x-collapse>
+                            <div class="bg-white">
+                                <table class="min-w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kode</th>
+                                            <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama</th>
+                                            <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lokasi</th>
+                                            <th class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
+                                            <th class="px-6 py-2 text-right text-xs font-medium text-gray-500 uppercase">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach($opData['accounts'] as $account)
+                                        <tr class="hover:bg-blue-50">
+                                            <td class="px-6 py-3 font-mono text-sm font-bold text-blue-600">{{ $account->code }}</td>
+                                            <td class="px-6 py-3 text-sm">{{ $account->name }}</td>
+                                            <td class="px-6 py-3 text-xs text-gray-600">
+                                                {{ $account->digit_3 == '0' ? 'Pusat' : ($account->faculty->name ?? 'Fakultas ' . $account->digit_3) }}
+                                                → {{ $account->unit->name ?? 'Unit ' . $account->digit_4 }}
+                                            </td>
+                                            <td class="px-6 py-3 text-sm">
+                                                <span class="px-2 py-1 rounded text-xs {{ $account->normal_balance == 'debit' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800' }}">
+                                                    {{ ucfirst($account->normal_balance) }}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-3 text-right space-x-2">
+                                                <a href="{{ route('accounts.show', $account) }}" class="text-blue-600 hover:text-blue-900"><i class="fas fa-eye"></i></a>
+                                                <a href="{{ route('accounts.edit', $account) }}" class="text-yellow-600 hover:text-yellow-900"><i class="fas fa-edit"></i></a>
+                                            </td>
+                                        </tr>
                                         @endforeach
-                                    </div>
-                                </div>
-                                @endforeach
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        @endforeach
                     </div>
-                </div>
                 @endforeach
             </div>
         </div>
@@ -388,17 +353,21 @@ function accountsPage() {
     return {
         showForm: false,
         expanded: {},
+        operationsGrouped: {},
         form: {
             digit1: '',
-            digit2: '0',
-            digit3: '',
+            digit2: '',
             facultyUnitCode: '',
             digit5: '',
             sequenceMode: 'auto',
             digit6: '0',
-            digit7: '0'
+            digit7: '0',
+            categoryType: null
         },
         generatedCode: '',
+        locationHint: '',
+        allowPusat: true,
+        allowFakultas: true,
 
         toggleForm() {
             this.showForm = !this.showForm;
@@ -413,13 +382,9 @@ function accountsPage() {
         },
 
         expandAll() {
-            // Get all possible keys from DOM
-            const keys = ['type', 'op', 'fac', 'unit', 'cat'];
-            keys.forEach(prefix => {
-                document.querySelectorAll(`[\\@click^="toggle('${prefix}_"]`).forEach(el => {
-                    const match = el.getAttribute('@click').match(/toggle\('([^']+)'\)/);
-                    if (match) this.expanded[match[1]] = true;
-                });
+            document.querySelectorAll('[\\@click^="toggle("]').forEach(el => {
+                const match = el.getAttribute('@click').match(/toggle\('([^']+)'\)/);
+                if (match) this.expanded[match[1]] = true;
             });
         },
 
@@ -427,9 +392,47 @@ function accountsPage() {
             this.expanded = {};
         },
 
-        checkOperationRestriction() {
-            this.form.digit3 = this.form.facultyUnitCode ? this.form.facultyUnitCode[0] : '0';
-            if (this.form.digit3 === '0') this.form.digit2 = '0';
+        async loadOperations() {
+            if (!this.form.digit1) return;
+            
+            try {
+                const response = await fetch(`/accounts/operations-by-type?type=${this.form.digit1}`);
+                this.operationsGrouped = await response.json();
+                this.form.digit2 = '';
+            } catch (error) {
+                console.error('Error loading operations:', error);
+            }
+        },
+
+        checkLocationRestriction() {
+            const select = document.querySelector('select[name="digit_2"]');
+            const selectedOption = select?.options[select.selectedIndex];
+            this.form.categoryType = selectedOption?.getAttribute('data-category');
+
+            if (this.form.categoryType === 'operasional') {
+                this.allowPusat = true;
+                this.allowFakultas = false;
+                this.locationHint = '⚠️ Operasional hanya untuk Pusat/Biro';
+            } else if (this.form.categoryType === 'program') {
+                this.allowPusat = false;
+                this.allowFakultas = true;
+                this.locationHint = '⚠️ Program hanya untuk Fakultas';
+            } else {
+                this.allowPusat = true;
+                this.allowFakultas = true;
+                this.locationHint = '';
+            }
+
+            // Reset location if not allowed
+            if (this.form.facultyUnitCode) {
+                const digit3 = this.form.facultyUnitCode[0];
+                if (!this.allowPusat && ['0', '5'].includes(digit3)) {
+                    this.form.facultyUnitCode = '';
+                }
+                if (!this.allowFakultas && !['0', '5'].includes(digit3)) {
+                    this.form.facultyUnitCode = '';
+                }
+            }
         },
 
         updateCode() {
